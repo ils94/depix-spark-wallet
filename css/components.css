@@ -1,0 +1,60 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  font-size: .8rem;
+  color: var(--mut);
+  margin-bottom: 6px;
+}
+
+.card-title {
+  color: var(--txt);
+  font-weight: 600;
+  font-size: .95rem;
+  text-align: center;
+}
+
+textarea, input[type="text"], input[type="number"], input[type="password"] {
+  width: 100%;
+  background: #0d1319;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--txt);
+  padding: 10px 12px;
+  font-size: .95rem;
+  resize: none;
+}
+
+textarea { min-height: 70px; }
+
+button {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+.btn-primary   { background: var(--acc); color: #111; }
+.btn-danger    { background: #3a1520; color: #ff6b81; }
+.btn-secondary { background: #1d2a36; color: var(--txt); }
+
+.row { display: flex; gap: 10px; }
+.row > div { flex: 1; }
+.row-gap-top { margin-top: 12px; }
+
+.spacer { height: 10px; }
+
+.btn-quote-wrap { display: flex; align-items: flex-end; }
+.btn-quote { margin-top: 0; }

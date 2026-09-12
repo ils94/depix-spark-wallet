@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>DePix · Spark Wallet</title>
+
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/wallet.css">
+  <link rel="stylesheet" href="css/responsive.css">
+<base target="_blank">
+</head>
+<body>
+  <div class="app">
+    <h1><span class="dp">DePix</span> · <span class="bt">Spark</span> Wallet</h1>
+
+    <div class="card" id="connectCard">
+      <label for="mnemonic">Frase de recuperação (12 ou 24 palavras)</label>
+      <textarea id="mnemonic" placeholder="palavra1 palavra2 palavra3 ..."></textarea>
+
+      <div class="spacer"></div>
+      <label for="pwdNew">Crie uma senha para criptografar (AES-256)</label>
+      <input type="password" id="pwdNew" placeholder="mínimo 4 caracteres" autocomplete="new-password">
+
+      <button id="btnConnect" class="btn-primary">Salvar e conectar</button>
+      <div class="log" id="connectLog"></div>
+    </div>
+
+    <div class="card hidden" id="unlockCard">
+      <label class="card-title">Carteira encontrada neste navegador</label>
+      <div class="spacer"></div>
+
+      <input type="password" id="pwdUnlock" placeholder="Digite sua senha" autocomplete="current-password">
+
+      <button id="btnUnlock" class="btn-primary">Desbloquear carteira</button>
+      <button id="btnWipeUnlock" class="btn-danger">Apagar carteira salva</button>
+      <div class="log" id="unlockLog"></div>
+    </div>
+
+    <div id="walletView" class="hidden">
+
+      <div class="card">
+        <div class="balrow">
+          <span class="lbl">BTC (sats)</span>
+          <span class="val val-btc" id="btcBal">—</span>
+        </div>
+        <div class="balrow">
+          <span class="lbl">DePix</span>
+          <span class="val val-dpx" id="depixBal">—</span>
+        </div>
+        <button class="btn-secondary" id="btnRefresh">Atualizar saldo</button>
+        <div class="addr-box">
+          <div class="addr-label">Seu endereço Spark</div>
+          <div class="addr-value" id="sparkAddr">—</div>
+          <button class="btn-secondary btn-copy" id="btnCopyAddr">Copiar endereço</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="card-title" for="amountIn">Trocar DePix → BTC</label>
+        <div class="spacer"></div>
+        <label for="amountIn">Quantidade de DePix</label>
+        <input type="number" id="amountIn" min="0" step="any" placeholder="ex: 1.5">
+
+        <div class="row row-gap-top">
+          <div>
+            <label for="slippage">Slippage (%)</label>
+            <input type="number" id="slippage" value="1" min="0.1" step="0.1">
+          </div>
+          <div class="btn-quote-wrap">
+            <button class="btn-secondary btn-quote" id="btnQuote">Simular</button>
+          </div>
+        </div>
+
+        <div class="quote" id="quoteBox"></div>
+        <button id="btnSwap" class="btn-primary" disabled>Executar swap</button>
+        <div class="log" id="swapLog"></div>
+      </div>
+
+      <div class="card">
+        <label class="card-title">Histórico de transações</label>
+        <button class="btn-secondary" id="btnRefreshTx">Atualizar histórico</button>
+        <div id="txList" class="tx-list"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
