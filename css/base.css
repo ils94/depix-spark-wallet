@@ -23,9 +23,24 @@ body {
 
 .app { width: 100%; max-width: 480px; }
 
-h1 { font-size: 1.35rem; margin-bottom: 4px; text-align: center; }
-h1 .dp { color: var(--dep); }
-h1 .bt { color: var(--acc); }
+h1 {
+  font-size: 1.35rem;
+  margin-bottom: 4px;
+  text-align: center;
+  font-weight: 700;
+}
+
+h1 .de {
+  color: #ffffff;
+}
+
+h1 .pix {
+  color: #00d4c8;
+}
+
+h1 .bt {
+  color: var(--acc);
+}
 
 .sub { color: var(--mut); font-size: .85rem; margin-bottom: 20px; }
 
