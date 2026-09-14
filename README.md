@@ -8,7 +8,7 @@ Web Wallet simples para verificar saldo de Bitcoin e DePix na Spark e fazer Swap
 - Criptografia local da seed com AES-256-GCM (senha do usuário)
 - Exibição de saldo em BTC (sats) e DePix
 - Endereço Spark para recebimento
-- Swap DePix → BTC com simulação e proteção de slippage
+- Swap DePix → BTC / BTC → DePix com simulação e proteção de slippage
 - Histórico de transferências BTC e transações DePix
 
 ## Stack
@@ -47,6 +47,7 @@ Acesse `http://localhost:8080` (ou a porta indicada).
 │   ├── components.css
 │   ├── wallet.css
 │   └── responsive.css
+│   └── dropdown.css
 └── js/
     ├── main.js
     ├── config.js
