@@ -47,9 +47,9 @@ export async function refreshBalances() {
     }
 
     $("depixBal").textContent = depix
-    ? (Number(depix.availableToSendBalance) / 1e8)
-    .toLocaleString("pt-BR", { maximumFractionDigits: 8 })
-    : "0";
+      ? (Number(depix.availableToSendBalance) / 1e8)
+          .toLocaleString("pt-BR", { maximumFractionDigits: 8 })
+      : "0";
   } catch (e) {
     $("btcBal").textContent = "erro";
     $("depixBal").textContent = "erro";
@@ -77,9 +77,9 @@ export async function refreshTransfers() {
       });
 
       tokenTxs =
-      tokenResult?.tokenTransactionsWithStatus ||
-      tokenResult?.tokenTransactions ||
-      [];
+        tokenResult?.tokenTransactionsWithStatus ||
+        tokenResult?.tokenTransactions ||
+        [];
     } catch (e) {
       console.warn("Falha ao buscar token txs:", e);
     }
@@ -117,9 +117,9 @@ export async function refreshTransfers() {
         kind: "btc",
         direction: tx.transferDirection,
         amount: Number(tx.totalValue),
-                 type: tx.type || "TRANSFER",
-                 status: String(tx.status || "").replace("TRANSFER_STATUS_", ""),
-                 date: tx.createdTime ? new Date(tx.createdTime) : null,
+        type: tx.type || "TRANSFER",
+        status: String(tx.status || "").replace("TRANSFER_STATUS_", ""),
+        date: tx.createdTime ? new Date(tx.createdTime) : null,
       });
     }
 
@@ -145,10 +145,10 @@ export async function refreshTransfers() {
       }
 
       const date = tx.clientCreatedTimestamp
-      ? new Date(tx.clientCreatedTimestamp)
-      : tx.expiryTime
-      ? new Date(tx.expiryTime)
-      : null;
+        ? new Date(tx.clientCreatedTimestamp)
+        : tx.expiryTime
+        ? new Date(tx.expiryTime)
+        : null;
 
       items.push({
         kind: "depix",
@@ -168,32 +168,32 @@ export async function refreshTransfers() {
     }
 
     el.innerHTML = items
-    .map((item) => {
-      const isDepix = item.kind === "depix";
-      const isIn = item.direction === "INCOMING";
-      const dirClass = isIn ? "tx-dir-in" : "tx-dir-out";
+      .map((item) => {
+        const isDepix = item.kind === "depix";
+        const isIn = item.direction === "INCOMING";
+        const dirClass = isIn ? "tx-dir-in" : "tx-dir-out";
 
-      const amountStr = isDepix
-      ? `${isIn ? "+" : "−"}${item.amount.toLocaleString("pt-BR", {
-        maximumFractionDigits: 8,
-      })} DePix`
-      : `${isIn ? "+" : "−"}${item.amount.toLocaleString("pt-BR")} sats`;
+        const amountStr = isDepix
+          ? `${isIn ? "+" : "−"}${item.amount.toLocaleString("pt-BR", {
+              maximumFractionDigits: 8,
+            })} DePix`
+          : `${isIn ? "+" : "−"}${item.amount.toLocaleString("pt-BR")} sats`;
 
-      const dateStr = item.date
-      ? item.date.toLocaleString("pt-BR")
-      : "—";
+        const dateStr = item.date
+          ? item.date.toLocaleString("pt-BR")
+          : "—";
 
-      return `
-      <div class="tx-item">
-      <div>
-      <div class="${dirClass}">${amountStr}</div>
-      <div class="tx-meta">${item.type} · ${dateStr}</div>
-      </div>
-      <div class="tx-meta">${item.status || ""}</div>
-      </div>
-      `;
-    })
-    .join("");
+        return `
+        <div class="tx-item">
+          <div>
+            <div class="${dirClass}">${amountStr}</div>
+            <div class="tx-meta">${item.type} · ${dateStr}</div>
+          </div>
+          <div class="tx-meta">${item.status || ""}</div>
+        </div>
+        `;
+      })
+      .join("");
   } catch (e) {
     console.error(e);
     el.innerHTML = `<div class="tx-meta">Erro: ${e.message || e}</div>`;
@@ -202,6 +202,11 @@ export async function refreshTransfers() {
 
 export async function getSparkAddress() {
   return state.wallet.getSparkAddress();
+}
+
+export async function getStaticDepositAddress() {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+  return state.wallet.getStaticDepositAddress();
 }
 
 export async function sendBtc(receiverSparkAddress, amountSats) {
@@ -221,5 +226,35 @@ export async function sendDepix(receiverSparkAddress, amountDepix) {
     tokenIdentifier: DEPIX_BECH32,
     tokenAmount,
     receiverSparkAddress
+  });
+}
+
+export async function getExitFeeQuote(amountSats, withdrawalAddress) {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+  return state.wallet.getWithdrawalFeeQuote({
+    amountSats: Number(amountSats),
+    withdrawalAddress
+  });
+}
+
+export async function executeExit({ onchainAddress, amountSats, exitSpeed, feeQuote, deductFee = true }) {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+
+  let feeAmountSats = 0;
+  if (exitSpeed === "FAST") {
+    feeAmountSats = (feeQuote.userFeeFast?.originalValue || 0) + (feeQuote.l1BroadcastFeeFast?.originalValue || 0);
+  } else if (exitSpeed === "MEDIUM") {
+    feeAmountSats = (feeQuote.userFeeMedium?.originalValue || 0) + (feeQuote.l1BroadcastFeeMedium?.originalValue || 0);
+  } else {
+    feeAmountSats = (feeQuote.userFeeSlow?.originalValue || 0) + (feeQuote.l1BroadcastFeeSlow?.originalValue || 0);
+  }
+
+  return state.wallet.withdraw({
+    onchainAddress,
+    amountSats: Number(amountSats),
+    exitSpeed,
+    feeQuoteId: feeQuote.id,
+    feeAmountSats,
+    deductFeeFromWithdrawalAmount: false
   });
 }

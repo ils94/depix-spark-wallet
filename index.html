@@ -9,8 +9,8 @@
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/wallet.css">
-  <link rel="stylesheet" href="css/dropdown.css">
   <link rel="stylesheet" href="css/responsive.css">
+  <link rel="stylesheet" href="css/dropdown.css">
   <base target="_blank">
 </head>
 <body>
@@ -52,10 +52,17 @@
           <span class="val val-dpx" id="depixBal">—</span>
         </div>
         <button class="btn-secondary" id="btnRefresh">Atualizar saldo</button>
+
         <div class="addr-box">
           <div class="addr-label">Seu endereço Spark</div>
           <div class="addr-value" id="sparkAddr">—</div>
           <button class="btn-secondary btn-copy" id="btnCopyAddr">Copiar endereço</button>
+        </div>
+
+        <div class="addr-box" style="margin-top: 14px;">
+          <div class="addr-label">Depositar BTC on-chain</div>
+          <div class="addr-value" id="depositAddr">—</div>
+          <button class="btn-secondary btn-copy" id="btnCopyDeposit">Copiar endereço de depósito</button>
         </div>
       </div>
 
@@ -67,6 +74,7 @@
         <select id="actionMode">
           <option value="swap">Swap</option>
           <option value="send">Envio</option>
+          <option value="exit">Exit</option>
         </select>
 
         <div id="swapSection">
@@ -78,7 +86,6 @@
 
           <label for="amountIn" id="amountLabel">Quantidade de DePix</label>
           <input type="number" id="amountIn" min="0" step="any" placeholder="ex: 1.5">
-          <div class="equiv" id="btcEquiv"></div>
 
           <div class="row row-gap-top">
             <div>
@@ -108,6 +115,25 @@
           <input type="text" id="sendTo" placeholder="spark1...">
 
           <button id="btnSend" class="btn-primary">Enviar</button>
+        </div>
+
+        <div id="exitSection" class="hidden">
+          <label for="exitAmount">Quantidade de sats</label>
+          <input type="number" id="exitAmount" min="1" step="1" placeholder="ex: 50000">
+
+          <label for="exitAddress">Endereço on-chain de destino</label>
+          <input type="text" id="exitAddress" placeholder="bc1q... ou bc1p...">
+
+          <label for="exitSpeed">Velocidade</label>
+          <select id="exitSpeed">
+            <option value="FAST">Rápida (mais cara)</option>
+            <option value="MEDIUM" selected>Média</option>
+            <option value="SLOW">Lenta (mais barata)</option>
+          </select>
+
+          <button id="btnExitQuote" class="btn-secondary">Simular taxa</button>
+          <div class="quote" id="exitQuoteBox"></div>
+          <button id="btnExit" class="btn-primary" disabled>Executar Exit</button>
         </div>
 
         <div class="log" id="swapLog"></div>

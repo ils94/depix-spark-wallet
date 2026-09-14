@@ -1,6 +1,16 @@
 import { state } from "./config.js";
 import { $, appendLog } from "./dom.js";
-import { connect, refreshBalances, getSparkAddress, refreshTransfers, sendBtc, sendDepix } from "./wallet-service.js";
+import {
+  connect,
+  refreshBalances,
+  getSparkAddress,
+  getStaticDepositAddress,
+  refreshTransfers,
+  sendBtc,
+  sendDepix,
+  getExitFeeQuote,
+  executeExit
+} from "./wallet-service.js";
 import { simulate, execute } from "./swap-service.js";
 import { encryptMnemonic, decryptMnemonic } from "./crypto-service.js";
 import {
@@ -20,6 +30,14 @@ function showInitialView() {
 
 async function enterWallet() {
   $("sparkAddr").textContent = await getSparkAddress();
+
+  try {
+    $("depositAddr").textContent = await getStaticDepositAddress();
+  } catch (e) {
+    $("depositAddr").textContent = "Erro ao gerar endereço";
+    console.error(e);
+  }
+
   $("connectCard").classList.add("hidden");
   $("unlockCard").classList.add("hidden");
   $("walletView").classList.remove("hidden");
@@ -107,6 +125,28 @@ $("btnCopyAddr").onclick = async () => {
   }, 1500);
 };
 
+$("btnCopyDeposit").onclick = async () => {
+  const addr = $("depositAddr").textContent;
+  const btn = $("btnCopyDeposit");
+  if (!addr || addr === "—" || addr.startsWith("Erro")) return;
+  try {
+    await navigator.clipboard.writeText(addr);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = addr;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+  btn.textContent = "Copiado!";
+  btn.classList.add("copied");
+  setTimeout(() => {
+    btn.textContent = "Copiar endereço de depósito";
+    btn.classList.remove("copied");
+  }, 1500);
+};
+
 function swapDirection() {
   return $("swapDir").value;
 }
@@ -119,14 +159,6 @@ function swapUnit() {
   return isSatsInput() ? "sats" : "DePix";
 }
 
-function updateBtcEquiv() {
-  const el = $("btcEquiv");
-  const sats = parseFloat($("amountIn").value);
-  el.textContent = (isSatsInput() && !isNaN(sats) && sats > 0)
-  ? `= ${(sats / 1e8).toFixed(8)} BTC`
-  : "";
-}
-
 $("swapDir").onchange = () => {
   const sats = isSatsInput();
   $("amountLabel").textContent = sats ? "Quantidade de sats" : "Quantidade de DePix";
@@ -136,10 +168,7 @@ $("swapDir").onchange = () => {
   state.lastQuote = null;
   $("quoteBox").classList.remove("show");
   $("swapLog").textContent = "";
-  updateBtcEquiv();
 };
-
-$("amountIn").oninput = updateBtcEquiv;
 
 $("btnQuote").onclick = async () => {
   const direction = swapDirection();
@@ -158,18 +187,18 @@ $("btnQuote").onclick = async () => {
     state.lastQuote = quote;
 
     $("quoteBox").innerHTML = direction === "depixToBtc"
-    ? `Voce recebe aprox. <b>${quote.amountOut.toLocaleString("pt-BR")} sats</b> (` +
-    (quote.amountOut / 1e8).toFixed(8) + ` BTC)<br>` +
-    `Taxa do pool embutida na cotacao.`
-    : `Voce recebe aprox. <b>${(quote.amountOut / 1e8).toLocaleString("pt-BR", { maximumFractionDigits: 8 })} DePix</b><br>` +
-    `Taxa do pool embutida na cotacao.`;
+      ? `Voce recebe aprox. <b>${quote.amountOut.toLocaleString("pt-BR")} sats</b> (` +
+        (quote.amountOut / 1e8).toFixed(8) + ` BTC)<br>` +
+        `Taxa do pool embutida na cotacao.`
+      : `Voce recebe aprox. <b>${(quote.amountOut / 1e8).toLocaleString("pt-BR", { maximumFractionDigits: 8 })} DePix</b><br>` +
+        `Taxa do pool embutida na cotacao.`;
     $("quoteBox").classList.add("show");
     $("btnSwap").disabled = false;
     appendLog(lg, "Simulacao OK.");
   } catch (e) {
     const extra = String(e?.message || "").includes("FSAG-1003")
-    ? " (valor abaixo do minimo do pool — aumente a quantidade)"
-    : "";
+      ? " (valor abaixo do minimo do pool — aumente a quantidade)"
+      : "";
     appendLog(lg, "Erro: " + (e?.message || e) + extra);
   }
 };
@@ -187,7 +216,7 @@ $("btnSwap").onclick = async () => {
     appendLog(lg, "Enviando swap para a pool…");
     const result = await execute({ ...state.lastQuote, slippagePct: slipPct });
     appendLog(lg, "Swap executado: " + JSON.stringify(result).slice(0, 400));
-    btn.textContent = "Swap concluido";
+    btn.textContent = "Executar swap";
     await refreshBalances();
   } catch (e) {
     appendLog(lg, "Erro: " + (e?.message || e));
@@ -197,15 +226,18 @@ $("btnSwap").onclick = async () => {
 
 function updateActionMode() {
   const mode = $("actionMode").value;
-  const isSwap = mode === "swap";
 
-  $("swapSection").classList.toggle("hidden", !isSwap);
-  $("sendSection").classList.toggle("hidden", isSwap);
+  $("swapSection").classList.toggle("hidden", mode !== "swap");
+  $("sendSection").classList.toggle("hidden", mode !== "send");
+  $("exitSection").classList.toggle("hidden", mode !== "exit");
 
   $("swapLog").textContent = "";
   $("btnSwap").disabled = true;
+  $("btnExit").disabled = true;
   state.lastQuote = null;
+  state.lastExitQuote = null;
   if ($("quoteBox")) $("quoteBox").classList.remove("show");
+  if ($("exitQuoteBox")) $("exitQuoteBox").classList.remove("show");
 }
 
 $("actionMode").onchange = updateActionMode;
@@ -261,6 +293,104 @@ $("btnSend").onclick = async () => {
     btn.disabled = false;
     btn.textContent = "Enviar";
   }
+};
+
+state.lastExitQuote = null;
+
+$("btnExitQuote").onclick = async () => {
+  const amount = parseInt($("exitAmount").value, 10);
+  const address = $("exitAddress").value.trim();
+  const speed = $("exitSpeed").value;
+
+  if (!amount || amount <= 0) return alert("Informe a quantidade de sats");
+  if (!address || !(address.startsWith("bc1") || address.startsWith("1") || address.startsWith("3"))) {
+    return alert("Informe um endereço Bitcoin on-chain válido");
+  }
+
+  const lg = $("swapLog");
+  lg.textContent = "";
+  $("btnExit").disabled = true;
+  state.lastExitQuote = null;
+  $("exitQuoteBox").classList.remove("show");
+
+  try {
+    appendLog(lg, "Consultando taxa de exit…");
+    const quote = await getExitFeeQuote(amount, address);
+    if (!quote) throw new Error("Não foi possível obter cotação de taxa");
+
+    state.lastExitQuote = quote;
+
+    let fee = 0;
+    if (speed === "FAST") {
+      fee = (quote.userFeeFast?.originalValue || 0) + (quote.l1BroadcastFeeFast?.originalValue || 0);
+    } else if (speed === "MEDIUM") {
+      fee = (quote.userFeeMedium?.originalValue || 0) + (quote.l1BroadcastFeeMedium?.originalValue || 0);
+    } else {
+      fee = (quote.userFeeSlow?.originalValue || 0) + (quote.l1BroadcastFeeSlow?.originalValue || 0);
+    }
+
+    // Como deductFee = false, o destinatário recebe o valor cheio
+    // e a taxa é paga à parte do saldo da Spark
+    $("exitQuoteBox").innerHTML =
+      `Destinatário recebe: <b>${amount.toLocaleString("pt-BR")} sats</b><br>` +
+      `Taxa (paga do seu saldo): <b>${fee.toLocaleString("pt-BR")} sats</b> (${speed})<br>` +
+      `Total debitado da Spark: <b>${(amount + fee).toLocaleString("pt-BR")} sats</b><br>` +
+      `Cotação válida até: ${new Date(quote.expiresAt).toLocaleString("pt-BR")}`;
+    $("exitQuoteBox").classList.add("show");
+    $("btnExit").disabled = false;
+    appendLog(lg, "Cotação OK.");
+  } catch (e) {
+    appendLog(lg, "Erro: " + (e?.message || e));
+  }
+};
+
+$("btnExit").onclick = async () => {
+  if (!state.lastExitQuote) return;
+
+  const amount = parseInt($("exitAmount").value, 10);
+  const address = $("exitAddress").value.trim();
+  const speed = $("exitSpeed").value;
+
+  const btn = $("btnExit");
+  const lg = $("swapLog");
+  btn.disabled = true;
+  btn.textContent = "Executando Exit…";
+  lg.textContent = "";
+
+  try {
+    appendLog(lg, `Iniciando exit de ${amount} sats para ${address.slice(0, 12)}…`);
+
+    const result = await executeExit({
+      onchainAddress: address,
+      amountSats: amount,
+      exitSpeed: speed,
+      feeQuote: state.lastExitQuote,
+      deductFee: true
+    });
+
+    appendLog(lg, "Exit iniciado com sucesso!");
+    if (result?.id) appendLog(lg, "ID: " + result.id);
+    if (result?.coopExitTxid) appendLog(lg, "Txid on-chain: " + result.coopExitTxid);
+
+    $("exitAmount").value = "";
+    $("exitAddress").value = "";
+    state.lastExitQuote = null;
+    $("exitQuoteBox").classList.remove("show");
+
+    await refreshBalances();
+    await refreshTransfers();
+  } catch (e) {
+    appendLog(lg, "Erro: " + (e?.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Executar Exit";
+  }
+};
+
+$("exitSpeed").onchange = () => {
+  state.lastExitQuote = null;
+  $("btnExit").disabled = true;
+  $("exitQuoteBox").classList.remove("show");
 };
 
 updateActionMode();
