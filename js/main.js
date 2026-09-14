@@ -9,7 +9,8 @@ import {
   sendBtc,
   sendDepix,
   getExitFeeQuote,
-  executeExit
+  executeExit,
+  payLightning
 } from "./wallet-service.js";
 import { simulate, execute } from "./swap-service.js";
 import { encryptMnemonic, decryptMnemonic } from "./crypto-service.js";
@@ -246,6 +247,12 @@ $("sendAsset").onchange = () => {
   const isBtc = $("sendAsset").value === "btc";
   $("sendAmountLabel").textContent = isBtc ? "Quantidade de sats" : "Quantidade de DePix";
   $("sendAmount").placeholder = isBtc ? "ex: 5000" : "ex: 1.5";
+
+  if (isBtc) {
+    $("sendTo").placeholder = "spark1... | lnbc... | user@domain";
+  } else {
+    $("sendTo").placeholder = "spark1...";
+  }
 };
 
 $("btnSend").onclick = async () => {
@@ -253,8 +260,8 @@ $("btnSend").onclick = async () => {
   const amount = parseFloat($("sendAmount").value);
   const to = $("sendTo").value.trim();
 
-  if (!to || !to.startsWith("spark1")) {
-    return alert("Informe um endereço Spark válido (começa com spark1)");
+  if (!to) {
+    return alert("Informe o destino");
   }
   if (!amount || amount <= 0) {
     return alert("Informe uma quantidade válida");
@@ -270,13 +277,24 @@ $("btnSend").onclick = async () => {
   lg.textContent = "";
 
   try {
-    appendLog(lg, `Enviando ${amount} ${asset === "btc" ? "sats" : "DePix"} para ${to.slice(0, 14)}…`);
-
     let result;
-    if (asset === "btc") {
-      result = await sendBtc(to, amount);
-    } else {
+
+    if (asset === "depix") {
+      if (!to.startsWith("spark1")) {
+        throw new Error("DePix só pode ser enviado para endereço Spark (spark1...)");
+      }
+      appendLog(lg, `Enviando ${amount} DePix para ${to.slice(0, 14)}…`);
       result = await sendDepix(to, amount);
+    } else {
+      if (to.startsWith("spark1")) {
+        appendLog(lg, `Enviando ${amount} sats (Spark) para ${to.slice(0, 14)}…`);
+        result = await sendBtc(to, amount);
+      } else if (to.toLowerCase().startsWith("ln") || to.includes("@")) {
+        appendLog(lg, `Enviando ${amount} sats (Lightning) para ${to.slice(0, 24)}…`);
+        result = await payLightning(to, amount, 100);
+      } else {
+        throw new Error("Destino inválido. Use spark1..., lnbc... ou user@domain");
+      }
     }
 
     appendLog(lg, "Envio concluído com sucesso!");
@@ -329,8 +347,6 @@ $("btnExitQuote").onclick = async () => {
       fee = (quote.userFeeSlow?.originalValue || 0) + (quote.l1BroadcastFeeSlow?.originalValue || 0);
     }
 
-    // Como deductFee = false, o destinatário recebe o valor cheio
-    // e a taxa é paga à parte do saldo da Spark
     $("exitQuoteBox").innerHTML =
       `Destinatário recebe: <b>${amount.toLocaleString("pt-BR")} sats</b><br>` +
       `Taxa (paga do seu saldo): <b>${fee.toLocaleString("pt-BR")} sats</b> (${speed})<br>` +
@@ -365,7 +381,7 @@ $("btnExit").onclick = async () => {
       amountSats: amount,
       exitSpeed: speed,
       feeQuote: state.lastExitQuote,
-      deductFee: true
+      deductFee: false
     });
 
     appendLog(lg, "Exit iniciado com sucesso!");

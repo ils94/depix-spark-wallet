@@ -237,7 +237,7 @@ export async function getExitFeeQuote(amountSats, withdrawalAddress) {
   });
 }
 
-export async function executeExit({ onchainAddress, amountSats, exitSpeed, feeQuote, deductFee = true }) {
+export async function executeExit({ onchainAddress, amountSats, exitSpeed, feeQuote, deductFee = false }) {
   if (!state.wallet) throw new Error("Carteira não conectada");
 
   let feeAmountSats = 0;
@@ -255,6 +255,70 @@ export async function executeExit({ onchainAddress, amountSats, exitSpeed, feeQu
     exitSpeed,
     feeQuoteId: feeQuote.id,
     feeAmountSats,
-    deductFeeFromWithdrawalAmount: false
+    deductFeeFromWithdrawalAmount: deductFee
+  });
+}
+
+export async function resolveLightningAddress(address, amountSats) {
+  const [user, domain] = address.trim().toLowerCase().split("@");
+  if (!user || !domain) throw new Error("Lightning Address inválido (use user@domain)");
+
+  const lnurlpUrl = `https://${domain}/.well-known/lnurlp/${encodeURIComponent(user)}`;
+  const infoRes = await fetch(lnurlpUrl);
+  if (!infoRes.ok) throw new Error(`Não foi possível resolver ${address}`);
+  const info = await infoRes.json();
+
+  if (info.status === "ERROR") throw new Error(info.reason || "Erro no LNURL");
+
+  const amountMsats = amountSats * 1000;
+
+  if (info.minSendable && amountMsats < info.minSendable) {
+    throw new Error(`Valor mínimo: ${Math.ceil(info.minSendable / 1000)} sats`);
+  }
+  if (info.maxSendable && amountMsats > info.maxSendable) {
+    throw new Error(`Valor máximo: ${Math.floor(info.maxSendable / 1000)} sats`);
+  }
+
+  const callback = new URL(info.callback);
+  callback.searchParams.set("amount", amountMsats.toString());
+
+  const invRes = await fetch(callback.toString());
+  if (!invRes.ok) throw new Error("Falha ao obter invoice");
+  const inv = await invRes.json();
+
+  if (inv.status === "ERROR") throw new Error(inv.reason || "Erro ao gerar invoice");
+  if (!inv.pr) throw new Error("Invoice não retornado pelo servidor");
+
+  return inv.pr;
+}
+
+export async function payLightning(destination, amountSats, maxFeeSats = 50) {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+
+  let invoice = destination.trim();
+  let fromLightningAddress = false;
+
+  if (invoice.includes("@") && !invoice.toLowerCase().startsWith("ln")) {
+    invoice = await resolveLightningAddress(invoice, amountSats);
+    fromLightningAddress = true;
+  }
+
+  if (!invoice.toLowerCase().startsWith("ln")) {
+    throw new Error("Destino Lightning inválido (use lnbc... ou user@domain)");
+  }
+
+  const params = {
+    invoice,
+    maxFeeSats: Number(maxFeeSats),
+    preferSpark: true
+  };
+
+  return state.wallet.payLightningInvoice(params);
+}
+
+export async function getLightningFeeEstimate(invoice) {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+  return state.wallet.getLightningSendFeeEstimate({
+    encodedInvoice: invoice
   });
 }
