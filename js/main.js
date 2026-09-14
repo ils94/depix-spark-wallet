@@ -107,9 +107,45 @@ $("btnCopyAddr").onclick = async () => {
   }, 1500);
 };
 
+function swapDirection() {
+  return $("swapDir").value;
+}
+
+function isSatsInput() {
+  return swapDirection() === "btcToDepix";
+}
+
+function swapUnit() {
+  return isSatsInput() ? "sats" : "DePix";
+}
+
+function updateBtcEquiv() {
+  const el = $("btcEquiv");
+  const sats = parseFloat($("amountIn").value);
+  el.textContent = (isSatsInput() && !isNaN(sats) && sats > 0)
+  ? `= ${(sats / 1e8).toFixed(8)} BTC`
+  : "";
+}
+
+$("swapDir").onchange = () => {
+  const sats = isSatsInput();
+  $("amountLabel").textContent = sats ? "Quantidade de sats" : "Quantidade de DePix";
+  $("amountIn").placeholder = sats ? "ex: 5000" : "ex: 1.5";
+  $("btnSwap").disabled = true;
+  $("btnSwap").textContent = "Executar swap";
+  state.lastQuote = null;
+  $("quoteBox").classList.remove("show");
+  $("swapLog").textContent = "";
+  updateBtcEquiv();
+};
+
+$("amountIn").oninput = updateBtcEquiv;
+
 $("btnQuote").onclick = async () => {
+  const direction = swapDirection();
   const amt = parseFloat($("amountIn").value);
-  if (!amt || amt <= 0) return alert("Informe a quantidade de DePix.");
+  if (!amt || amt <= 0) return alert(`Informe a quantidade de ${swapUnit()}.`);
+  if (isSatsInput() && !Number.isInteger(amt)) return alert("Informe a quantidade de sats em numero inteiro.");
 
   const lg = $("swapLog"); lg.textContent = "";
   $("btnSwap").disabled = true;
@@ -118,12 +154,14 @@ $("btnQuote").onclick = async () => {
 
   try {
     appendLog(lg, "Simulando swap…");
-    const quote = await simulate(amt);
+    const quote = await simulate(direction, amt);
     state.lastQuote = quote;
 
-    $("quoteBox").innerHTML =
-    `Voce recebe aprox. <b>${quote.satsOut.toLocaleString("pt-BR")} sats</b> (` +
-    (quote.satsOut / 1e8).toFixed(8) + ` BTC)<br>` +
+    $("quoteBox").innerHTML = direction === "depixToBtc"
+    ? `Voce recebe aprox. <b>${quote.amountOut.toLocaleString("pt-BR")} sats</b> (` +
+    (quote.amountOut / 1e8).toFixed(8) + ` BTC)<br>` +
+    `Taxa do pool embutida na cotacao.`
+    : `Voce recebe aprox. <b>${(quote.amountOut / 1e8).toLocaleString("pt-BR", { maximumFractionDigits: 8 })} DePix</b><br>` +
     `Taxa do pool embutida na cotacao.`;
     $("quoteBox").classList.add("show");
     $("btnSwap").disabled = false;
@@ -150,6 +188,7 @@ $("btnSwap").onclick = async () => {
     const result = await execute({ ...state.lastQuote, slippagePct: slipPct });
     appendLog(lg, "Swap executado: " + JSON.stringify(result).slice(0, 400));
     btn.textContent = "Swap concluido";
+    await refreshBalances();
   } catch (e) {
     appendLog(lg, "Erro: " + (e?.message || e));
     btn.disabled = false; btn.textContent = "Executar swap";
