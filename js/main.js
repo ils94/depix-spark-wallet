@@ -1,6 +1,6 @@
 import { state } from "./config.js";
 import { $, appendLog } from "./dom.js";
-import { connect, refreshBalances, getSparkAddress, refreshTransfers } from "./wallet-service.js";
+import { connect, refreshBalances, getSparkAddress, refreshTransfers, sendBtc, sendDepix } from "./wallet-service.js";
 import { simulate, execute } from "./swap-service.js";
 import { encryptMnemonic, decryptMnemonic } from "./crypto-service.js";
 import {
@@ -195,4 +195,73 @@ $("btnSwap").onclick = async () => {
   }
 };
 
+function updateActionMode() {
+  const mode = $("actionMode").value;
+  const isSwap = mode === "swap";
+
+  $("swapSection").classList.toggle("hidden", !isSwap);
+  $("sendSection").classList.toggle("hidden", isSwap);
+
+  $("swapLog").textContent = "";
+  $("btnSwap").disabled = true;
+  state.lastQuote = null;
+  if ($("quoteBox")) $("quoteBox").classList.remove("show");
+}
+
+$("actionMode").onchange = updateActionMode;
+
+$("sendAsset").onchange = () => {
+  const isBtc = $("sendAsset").value === "btc";
+  $("sendAmountLabel").textContent = isBtc ? "Quantidade de sats" : "Quantidade de DePix";
+  $("sendAmount").placeholder = isBtc ? "ex: 5000" : "ex: 1.5";
+};
+
+$("btnSend").onclick = async () => {
+  const asset = $("sendAsset").value;
+  const amount = parseFloat($("sendAmount").value);
+  const to = $("sendTo").value.trim();
+
+  if (!to || !to.startsWith("spark1")) {
+    return alert("Informe um endereço Spark válido (começa com spark1)");
+  }
+  if (!amount || amount <= 0) {
+    return alert("Informe uma quantidade válida");
+  }
+  if (asset === "btc" && !Number.isInteger(amount)) {
+    return alert("Quantidade de sats deve ser um número inteiro");
+  }
+
+  const btn = $("btnSend");
+  const lg = $("swapLog");
+  btn.disabled = true;
+  btn.textContent = "Enviando…";
+  lg.textContent = "";
+
+  try {
+    appendLog(lg, `Enviando ${amount} ${asset === "btc" ? "sats" : "DePix"} para ${to.slice(0, 14)}…`);
+
+    let result;
+    if (asset === "btc") {
+      result = await sendBtc(to, amount);
+    } else {
+      result = await sendDepix(to, amount);
+    }
+
+    appendLog(lg, "Envio concluído com sucesso!");
+    console.log(result);
+
+    $("sendAmount").value = "";
+    $("sendTo").value = "";
+
+    await refreshBalances();
+    await refreshTransfers();
+  } catch (e) {
+    appendLog(lg, "Erro: " + (e?.message || e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Enviar";
+  }
+};
+
+updateActionMode();
 showInitialView();
