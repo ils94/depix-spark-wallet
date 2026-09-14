@@ -8,6 +8,7 @@
   <link rel="icon" type="image/x-icon" href="./favicon.ico">
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/dropdown.css">
   <link rel="stylesheet" href="css/wallet.css">
   <link rel="stylesheet" href="css/responsive.css">
 <base target="_blank">
@@ -59,10 +60,18 @@
       </div>
 
       <div class="card">
-        <label class="card-title" for="amountIn">Trocar DePix → BTC</label>
+        <label class="card-title" for="swapDir">Swap</label>
         <div class="spacer"></div>
-        <label for="amountIn">Quantidade de DePix</label>
+
+        <label for="swapDir">Direção</label>
+        <select id="swapDir">
+          <option value="depixToBtc">DePix → BTC</option>
+          <option value="btcToDepix">BTC → DePix</option>
+        </select>
+
+        <label for="amountIn" id="amountLabel">Quantidade de DePix</label>
         <input type="number" id="amountIn" min="0" step="any" placeholder="ex: 1.5">
+        <div class="equiv" id="btcEquiv"></div>
 
         <div class="row row-gap-top">
           <div>
