@@ -1,4 +1,4 @@
-select#swapDir {
+select {
     width: 100%;
     background: #0d1319;
     border: 1px solid var(--line);
@@ -15,19 +15,20 @@ select#swapDir {
     background-repeat: no-repeat;
     background-position: right 12px center;
     transition: border-color .2s, box-shadow .2s;
+    margin-bottom: 12px;
 }
 
-select#swapDir:hover {
+select:hover {
     border-color: #33465a;
 }
 
-select#swapDir:focus {
+select:focus {
     outline: none;
     border-color: var(--acc);
     box-shadow: 0 0 0 3px rgba(247, 147, 26, .15);
 }
 
-select#swapDir option {
+select option {
     background: var(--card);
     color: var(--txt);
     padding: 8px;
