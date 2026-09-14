@@ -1,153 +1,132 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-store">
-  <title>DePix · Spark Wallet</title>
-  <link rel="icon" type="image/x-icon" href="./favicon.ico">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/components.css">
-  <link rel="stylesheet" href="css/wallet.css">
-  <link rel="stylesheet" href="css/responsive.css">
-  <link rel="stylesheet" href="css/dropdown.css">
-  <base target="_blank">
-</head>
-<body>
-  <div class="app">
-    <h1><span class="dp"><span class="de">De</span><span class="pix">Pix</span></span> · Spark Wallet</h1>
-
-    <div class="card" id="connectCard">
-      <label for="mnemonic">Frase de recuperação (12 ou 24 palavras)</label>
-      <textarea id="mnemonic" placeholder="palavra1 palavra2 palavra3 ..."></textarea>
-
-      <div class="spacer"></div>
-      <label for="pwdNew">Crie uma senha para criptografar (AES-256)</label>
-      <input type="password" id="pwdNew" placeholder="mínimo 4 caracteres" autocomplete="new-password">
-
-      <button id="btnConnect" class="btn-primary">Salvar e conectar</button>
-      <div class="log" id="connectLog"></div>
-    </div>
-
-    <div class="card hidden" id="unlockCard">
-      <label class="card-title">Carteira encontrada neste navegador</label>
-      <div class="spacer"></div>
-
-      <input type="password" id="pwdUnlock" placeholder="Digite sua senha" autocomplete="current-password">
-
-      <button id="btnUnlock" class="btn-primary">Desbloquear carteira</button>
-      <button id="btnWipeUnlock" class="btn-danger">Apagar carteira salva</button>
-      <div class="log" id="unlockLog"></div>
-    </div>
-
-    <div id="walletView" class="hidden">
-
-      <div class="card">
-        <div class="balrow">
-          <span class="lbl">BTC (sats)</span>
-          <span class="val val-btc" id="btcBal">—</span>
-        </div>
-        <div class="balrow">
-          <span class="lbl">DePix</span>
-          <span class="val val-dpx" id="depixBal">—</span>
-        </div>
-        <button class="btn-secondary" id="btnRefresh">Atualizar saldo</button>
-
-        <div class="addr-box">
-          <div class="addr-label">Seu endereço Spark</div>
-          <div class="addr-value" id="sparkAddr">—</div>
-          <button class="btn-secondary btn-copy" id="btnCopyAddr">Copiar endereço</button>
-        </div>
-
-        <div class="addr-box" style="margin-top: 14px;">
-          <div class="addr-label">Depositar BTC on-chain</div>
-          <div class="addr-value" id="depositAddr">—</div>
-          <button class="btn-secondary btn-copy" id="btnCopyDeposit">Copiar endereço de depósito</button>
-        </div>
-      </div>
-
-      <div class="card" id="actionCard">
-        <label class="card-title" for="actionMode">Ação</label>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store">
+    <title>DePix · Spark Wallet</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/wallet.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <link rel="stylesheet" href="css/dropdown.css">
+    <base target="_blank">
+  </head>
+  <body>
+    <div class="app">
+      <h1>
+        <span class="dp">
+          <span class="de">De</span><span class="pix">Pix</span></span> · Spark Wallet
+      </h1>
+      <div class="card" id="connectCard">
+        <label for="mnemonic"> Frase de recuperação (12 ou 24 palavras) </label>
+        <textarea id="mnemonic" placeholder="palavra1 palavra2 palavra3 ..."></textarea>
         <div class="spacer"></div>
-
-        <label for="actionMode">Tipo</label>
-        <select id="actionMode">
-          <option value="swap">Swap</option>
-          <option value="send">Envio</option>
-          <option value="exit">Exit</option>
-        </select>
-
-        <div id="swapSection">
-          <label for="swapDir">Direção</label>
-          <select id="swapDir">
-            <option value="depixToBtc">DePix → BTC</option>
-            <option value="btcToDepix">BTC → DePix</option>
-          </select>
-
-          <label for="amountIn" id="amountLabel">Quantidade de DePix</label>
-          <input type="number" id="amountIn" min="0" step="any" placeholder="ex: 1.5">
-
-          <div class="row row-gap-top">
-            <div>
-              <label for="slippage">Slippage (%)</label>
-              <input type="number" id="slippage" value="1" min="0.1" step="0.1">
-            </div>
-            <div class="btn-quote-wrap">
-              <button class="btn-secondary btn-quote" id="btnQuote">Simular</button>
-            </div>
+        <label for="pwdNew"> Crie uma senha para criptografar (AES-256) </label>
+        <input type="password" id="pwdNew" placeholder="mínimo 4 caracteres" autocomplete="new-password">
+        <button id="btnConnect" class="btn-primary"> Salvar e conectar </button>
+        <div class="log" id="connectLog"></div>
+      </div>
+      <div class="card hidden" id="unlockCard">
+        <label class="card-title"> Carteira encontrada neste navegador </label>
+        <div class="spacer"></div>
+        <input type="password" id="pwdUnlock" placeholder="Digite sua senha" autocomplete="current-password">
+        <button id="btnUnlock" class="btn-primary"> Desbloquear carteira </button>
+        <button id="btnWipeUnlock" class="btn-danger"> Apagar carteira salva </button>
+        <div class="log" id="unlockLog"></div>
+      </div>
+      <div id="walletView" class="hidden">
+        <div class="card">
+          <div class="balrow">
+            <span class="lbl">BTC (sats)</span>
+            <span class="val val-btc" id="btcBal">—</span>
           </div>
-
-          <div class="quote" id="quoteBox"></div>
-          <button id="btnSwap" class="btn-primary" disabled>Executar swap</button>
+          <div class="balrow">
+            <span class="lbl">DePix</span>
+            <span class="val val-dpx" id="depixBal">—</span>
+          </div>
+          <button class="btn-secondary" id="btnRefresh"> Atualizar saldo </button>
+          <div class="addr-box">
+            <div class="addr-label"> Seu endereço Spark </div>
+            <div class="addr-value" id="sparkAddr"> — </div>
+            <button class="btn-secondary btn-copy" id="btnCopyAddr"> Copiar endereço </button>
+          </div>
+          <div class="addr-box" style="margin-top: 14px;">
+            <div class="addr-label"> Depositar BTC on-chain </div>
+            <div class="addr-value" id="depositAddr"> — </div>
+            <button class="btn-secondary btn-copy" id="btnCopyDeposit"> Copiar endereço de depósito </button>
+          </div>
         </div>
-
-        <div id="sendSection" class="hidden">
-          <label for="sendAsset">Ativo</label>
-          <select id="sendAsset">
-            <option value="btc">BTC (sats)</option>
-            <option value="depix">DePix</option>
+        <div class="card hidden" id="onchainClaimsCard">
+          <label class="card-title"> Reivindicar depósitos </label>
+          <div id="onchainDeposits" class="deposit-list"></div>
+        </div>
+        <div class="card" id="actionCard">
+          <label class="card-title" for="actionMode"> Ação </label>
+          <div class="spacer"></div>
+          <label for="actionMode"> Tipo </label>
+          <select id="actionMode">
+            <option value="swap"> Swap </option>
+            <option value="send"> Envio </option>
+            <option value="exit"> Exit </option>
           </select>
-
-          <label for="sendAmount" id="sendAmountLabel">Quantidade de sats</label>
-          <input type="number" id="sendAmount" min="0" step="any" placeholder="ex: 5000">
-
-          <label for="sendTo">Endereço Spark de destino</label>
-          <input type="text" id="sendTo" placeholder="spark1... | lnbc... | user@domain">
-
-          <button id="btnSend" class="btn-primary">Enviar</button>
+          <div id="swapSection">
+            <label for="swapDir"> Direção </label>
+            <select id="swapDir">
+              <option value="depixToBtc"> DePix → BTC </option>
+              <option value="btcToDepix"> BTC → DePix </option>
+            </select>
+            <label for="amountIn" id="amountLabel"> Quantidade de DePix </label>
+            <input type="number" id="amountIn" min="0" step="any" placeholder="ex: 1.5">
+            <div class="row row-gap-top">
+              <div>
+                <label for="slippage"> Slippage (%) </label>
+                <input type="number" id="slippage" value="1" min="0.1" step="0.1">
+              </div>
+              <div class="btn-quote-wrap">
+                <button class="btn-secondary btn-quote" id="btnQuote"> Simular </button>
+              </div>
+            </div>
+            <div class="quote" id="quoteBox"></div>
+            <button id="btnSwap" class="btn-primary" disabled> Executar swap </button>
+          </div>
+          <div id="sendSection" class="hidden">
+            <label for="sendAsset"> Ativo </label>
+            <select id="sendAsset">
+              <option value="btc"> BTC (sats) </option>
+              <option value="depix"> DePix </option>
+            </select>
+            <label for="sendAmount" id="sendAmountLabel"> Quantidade de sats </label>
+            <input type="number" id="sendAmount" min="0" step="any" placeholder="ex: 5000">
+            <label for="sendTo"> Endereço Spark de destino </label>
+            <input type="text" id="sendTo" placeholder="spark1... | lnbc... | user@domain">
+            <button id="btnSend" class="btn-primary"> Enviar </button>
+          </div>
+          <div id="exitSection" class="hidden">
+            <label for="exitAmount"> Quantidade de sats </label>
+            <input type="number" id="exitAmount" min="1" step="1" placeholder="ex: 50000">
+            <label for="exitAddress"> Endereço on-chain de destino </label>
+            <input type="text" id="exitAddress" placeholder="bc1q... ou bc1p...">
+            <label for="exitSpeed"> Velocidade </label>
+            <select id="exitSpeed">
+              <option value="FAST"> Rápida (mais cara) </option>
+              <option value="MEDIUM" selected> Média </option>
+              <option value="SLOW"> Lenta (mais barata) </option>
+            </select>
+            <button id="btnExitQuote" class="btn-secondary"> Simular taxa </button>
+            <div class="quote" id="exitQuoteBox"></div>
+            <button id="btnExit" class="btn-primary" disabled> Executar Exit </button>
+          </div>
+          <div class="log" id="swapLog"></div>
         </div>
-
-        <div id="exitSection" class="hidden">
-          <label for="exitAmount">Quantidade de sats</label>
-          <input type="number" id="exitAmount" min="1" step="1" placeholder="ex: 50000">
-
-          <label for="exitAddress">Endereço on-chain de destino</label>
-          <input type="text" id="exitAddress" placeholder="bc1q... ou bc1p...">
-
-          <label for="exitSpeed">Velocidade</label>
-          <select id="exitSpeed">
-            <option value="FAST">Rápida (mais cara)</option>
-            <option value="MEDIUM" selected>Média</option>
-            <option value="SLOW">Lenta (mais barata)</option>
-          </select>
-
-          <button id="btnExitQuote" class="btn-secondary">Simular taxa</button>
-          <div class="quote" id="exitQuoteBox"></div>
-          <button id="btnExit" class="btn-primary" disabled>Executar Exit</button>
+        <div class="card">
+          <label class="card-title"> Histórico de transações </label>
+          <button class="btn-secondary" id="btnRefreshTx"> Atualizar histórico </button>
+          <div id="txList" class="tx-list"></div>
         </div>
-
-        <div class="log" id="swapLog"></div>
       </div>
-
-      <div class="card">
-        <label class="card-title">Histórico de transações</label>
-        <button class="btn-secondary" id="btnRefreshTx">Atualizar histórico</button>
-        <div id="txList" class="tx-list"></div>
-      </div>
-
     </div>
-  </div>
-
-  <script type="module" src="js/main.js"></script>
-</body>
+    <script type="module" src="js/main.js"></script>
+  </body>
 </html>
