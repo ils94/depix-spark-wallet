@@ -4,11 +4,12 @@ Web Wallet simples para verificar saldo de Bitcoin e DePix na Spark e fazer Swap
 
 ## Funcionalidades
 
-- Importação de carteira por frase de recuperação (12 ou 24 palavras)
+- Importação de carteira por frase de recuperação
 - Criptografia local da seed com AES-256-GCM (senha do usuário)
 - Exibição de saldo em BTC (sats) e DePix
 - Endereço Spark para recebimento
 - Swap DePix → BTC / BTC → DePix com simulação e proteção de slippage
+- Envio para outro endereço Spark
 - Histórico de transferências BTC e transações DePix
 
 ## Stack
