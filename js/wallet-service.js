@@ -203,3 +203,23 @@ export async function refreshTransfers() {
 export async function getSparkAddress() {
   return state.wallet.getSparkAddress();
 }
+
+export async function sendBtc(receiverSparkAddress, amountSats) {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+  return state.wallet.transfer({
+    receiverSparkAddress,
+    amountSats: Number(amountSats)
+  });
+}
+
+export async function sendDepix(receiverSparkAddress, amountDepix) {
+  if (!state.wallet) throw new Error("Carteira não conectada");
+
+  const tokenAmount = BigInt(Math.round(amountDepix * 1e8));
+
+  return state.wallet.transferTokens({
+    tokenIdentifier: DEPIX_BECH32,
+    tokenAmount,
+    receiverSparkAddress
+  });
+}
