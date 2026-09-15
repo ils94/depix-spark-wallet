@@ -74,7 +74,6 @@ async function enterWallet() {
 
 	await refreshBalances();
 	await refreshOnchainDeposits();
-	startOnchainDepositPolling();
 }
 
 $("btnConnect").onclick = async () => {
@@ -330,103 +329,74 @@ $("btnCopyDeposit").onclick =
 	};
 
 async function refreshOnchainDeposits() {
-	const container =
-		$("onchainDeposits");
+  const container = $("onchainDeposits");
+  const card = $("onchainClaimsCard");
 
-	const claimsCard =
-		$("onchainClaimsCard");
+  if (
+    !container ||
+    !card ||
+    !state.wallet ||
+    onchainDepositBusy
+  ) {
+    return;
+  }
 
-	if (
-		!container ||
-		!claimsCard ||
-		!state.wallet ||
-		onchainDepositBusy
-	) {
-		return;
-	}
+  onchainDepositBusy = true;
 
-	onchainDepositBusy = true;
+  try {
+    const deposits = await getOnchainDeposits();
 
-	try {
-		const deposits =
-			await getOnchainDeposits();
+    if (!deposits.length) {
+      card.classList.add("hidden");
+      container.innerHTML = "";
+      return;
+    }
 
-		if (!deposits.length) {
-			claimsCard.classList.add(
-				"hidden"
-			);
+    card.classList.remove("hidden");
 
-			container.innerHTML = "";
+    const cards = [];
 
-			return;
-		}
+    for (const deposit of deposits) {
+      const txid = deposit.txid;
 
-		claimsCard.classList.remove(
-			"hidden"
-		);
+      const outputIndex = Number(
+        deposit.vout ?? 0
+      );
 
-		const cards = [];
+      const key = `${txid}:${outputIndex}`;
 
-		for (const deposit of deposits) {
-			const txid =
-				deposit.txid;
+      let quote = depositQuotes.get(key);
 
-			const outputIndex =
-				Number(
-					deposit.vout ?? 0
-				);
+      if (!quote) {
+        try {
+          quote = await getOnchainDepositQuote(
+            txid,
+            outputIndex
+          );
 
-			const key =
-				`${txid}:${outputIndex}`;
+          depositQuotes.set(key, quote);
+        } catch (e) {
+          console.warn(
+            "Não foi possível obter quote:",
+            e
+          );
+        }
+      }
 
-			let quote =
-				depositQuotes.get(
-					key
-				);
+      const amount =
+        quote?.creditAmountSats != null
+          ? Number(quote.creditAmountSats)
+          : null;
 
-			if (!quote) {
-				try {
-					quote =
-						await getOnchainDepositQuote(
-							txid,
-							outputIndex
-						);
+      const fee =
+        amount != null
+          ? Number(
+              quote?.depositAmountSats ?? 0
+            ) - amount
+          : null;
 
-					depositQuotes.set(
-						key,
-						quote
-					);
-				} catch (e) {
-					console.warn(
-						"Não foi possível obter quote:",
-						e
-					);
-				}
-			}
-
-			const amount =
-				quote?.creditAmountSats != null ?
-				Number(
-					quote.creditAmountSats
-				) :
-				null;
-
-			const depositAmount =
-				quote?.depositAmountSats != null ?
-				Number(
-					quote.depositAmountSats
-				) :
-				null;
-
-			const fee =
-				amount != null &&
-				depositAmount != null ?
-				depositAmount - amount :
-				null;
-
-			cards.push(`
+      cards.push(`
         <div class="onchain-deposit">
-
           <div class="onchain-deposit-header">
             <span class="onchain-deposit-title">
               Depósito BTC
@@ -439,13 +409,10 @@ async function refreshOnchainDeposits() {
 
           <div class="onchain-deposit-row">
             <span>Valor</span>
-
             <strong>
               ${
                 amount != null
-                  ? amount.toLocaleString(
-                      "pt-BR"
-                    ) + " sats"
+                  ? amount.toLocaleString("pt-BR") + " sats"
                   : "consultando…"
               }
             </strong>
@@ -456,11 +423,8 @@ async function refreshOnchainDeposits() {
               ? `
                 <div class="onchain-deposit-row">
                   <span>Taxa estimada</span>
-
                   <strong>
-                    ${fee.toLocaleString(
-                      "pt-BR"
-                    )} sats
+                    ${fee.toLocaleString("pt-BR")} sats
                   </strong>
                 </div>
               `
@@ -480,56 +444,46 @@ async function refreshOnchainDeposits() {
             Reivindicar BTC
           </button>
 
-          <div
-            class="claim-log"
-            id="claim-${key}"
-          ></div>
-
+          <div class="claim-log"></div>
         </div>
       `);
-		}
+    }
 
-		container.innerHTML =
-			cards.join("");
+    container.innerHTML = cards.join("");
 
-		container
-			.querySelectorAll(
-				".btn-claim"
-			)
-			.forEach((btn) => {
-				btn.onclick =
-					async () => {
-						const txid =
-							btn.dataset.txid;
+    container
+      .querySelectorAll(".btn-claim")
+      .forEach((btn) => {
+        btn.onclick = async () => {
+          const txid = btn.dataset.txid;
+          const outputIndex = Number(
+            btn.dataset.vout
+          );
 
-						const outputIndex =
-							Number(
-								btn.dataset.vout
-							);
+          await executeOnchainClaim(
+            btn,
+            txid,
+            outputIndex
+          );
+        };
+      });
+  } catch (e) {
+    console.error(
+      "Erro ao consultar depósitos on-chain:",
+      e
+    );
 
-						await executeOnchainClaim(
-							btn,
-							txid,
-							outputIndex
-						);
-					};
-			});
+    card.classList.remove("hidden");
 
-	} catch (e) {
-		console.error(
-			"Erro ao consultar depósitos on-chain:",
-			e
-		);
-
-		claimsCard.classList.add(
-			"hidden"
-		);
-
-		container.innerHTML = "";
-
-	} finally {
-		onchainDepositBusy = false;
-	}
+    container.innerHTML = `
+      <div class="tx-meta">
+        Erro ao consultar depósitos:
+        ${e?.message || e}
+      </div>
+    `;
+  } finally {
+    onchainDepositBusy = false;
+  }
 }
 
 async function executeOnchainClaim(
@@ -627,20 +581,6 @@ async function executeOnchainClaim(
 		btn.textContent =
 			originalText;
 	}
-}
-
-function startOnchainDepositPolling() {
-	if (onchainDepositTimer) {
-		clearInterval(
-			onchainDepositTimer
-		);
-	}
-
-	onchainDepositTimer =
-		setInterval(
-			refreshOnchainDeposits,
-			30000
-		);
 }
 
 function swapDirection() {
@@ -1351,6 +1291,20 @@ $("exitSpeed").onchange =
 			"show"
 		);
 	};
+
+$("btnCheckClaims").onclick = async () => {
+  const btn = $("btnCheckClaims");
+
+  btn.disabled = true;
+  btn.textContent = "Verificando…";
+
+  try {
+    await refreshOnchainDeposits();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Verificar claims";
+  }
+};
 
 updateActionMode();
 showInitialView();
