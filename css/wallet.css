@@ -211,3 +211,74 @@
   background: #394653;
   border-radius: 6px;
 }
+
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab-btn {
+  position: relative;
+  flex: 1;
+  background: transparent;
+  color: var(--mut);
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 6px;
+  margin-top: 0;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--txt);
+}
+
+.tab-btn.active {
+  color: var(--acc);
+  border-bottom-color: var(--acc);
+}
+
+.tab-btn .badge {
+  display: inline-block;
+  background: var(--dep);
+  color: #06281c;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.tab-btn .badge.hidden {
+  display: none;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+#noClaimsCard {
+  text-align: center;
+}
+
+#noClaimsCard.hidden {
+  display: none;
+}
+
+#tabPanelClaims > #btnCheckClaims {
+  margin-top: 0;
+  margin-bottom: 16px;
+}

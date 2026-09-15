@@ -74,6 +74,7 @@ async function enterWallet() {
 
 	await refreshBalances();
 	await refreshOnchainDeposits();
+	await refreshTransfers();
 }
 
 $("btnConnect").onclick = async () => {
@@ -328,9 +329,22 @@ $("btnCopyDeposit").onclick =
 		}, 1500);
 	};
 
+function updateClaimsBadge(count) {
+	const badge = $("claimsBadge");
+	if (!badge) return;
+
+	if (count > 0) {
+		badge.textContent = count > 99 ? "99+" : String(count);
+		badge.classList.remove("hidden");
+	} else {
+		badge.classList.add("hidden");
+	}
+}
+
 async function refreshOnchainDeposits() {
   const container = $("onchainDeposits");
   const card = $("onchainClaimsCard");
+  const emptyCard = $("noClaimsCard");
 
   if (
     !container ||
@@ -348,11 +362,15 @@ async function refreshOnchainDeposits() {
 
     if (!deposits.length) {
       card.classList.add("hidden");
+      if (emptyCard) emptyCard.classList.remove("hidden");
       container.innerHTML = "";
+      updateClaimsBadge(0);
       return;
     }
 
     card.classList.remove("hidden");
+    if (emptyCard) emptyCard.classList.add("hidden");
+    updateClaimsBadge(deposits.length);
 
     const cards = [];
 
@@ -474,6 +492,7 @@ async function refreshOnchainDeposits() {
     );
 
     card.classList.remove("hidden");
+    if (emptyCard) emptyCard.classList.add("hidden");
 
     container.innerHTML = `
       <div class="tx-meta">
@@ -1306,5 +1325,22 @@ $("btnCheckClaims").onclick = async () => {
   }
 };
 
+function switchTab(tabName) {
+	document.querySelectorAll(".tab-btn").forEach(b => {
+		b.classList.toggle("active", b.dataset.tab === tabName);
+	});
+	document.querySelectorAll(".tab-panel").forEach(p => {
+		const targetId = "tabPanel" + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+		p.classList.toggle("active", p.id === targetId);
+	});
+}
+
+function initTabs() {
+	document.querySelectorAll(".tab-btn").forEach(btn => {
+		btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+	});
+}
+
+initTabs();
 updateActionMode();
 showInitialView();
