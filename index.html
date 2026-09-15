@@ -57,11 +57,13 @@
             <div class="addr-box">
               <div class="addr-label"> Seu endereço Spark </div>
               <div class="addr-value" id="sparkAddr"> — </div>
+              <button class="btn-secondary" id="btnQrSpark"> Ver QR Code </button>
               <button class="btn-secondary btn-copy" id="btnCopyAddr"> Copiar endereço </button>
             </div>
             <div class="addr-box" style="margin-top: 14px;">
               <div class="addr-label"> Depositar BTC on-chain </div>
               <div class="addr-value" id="depositAddr"> — </div>
+              <button class="btn-secondary" id="btnQrDeposit"> Ver QR Code </button>
               <button class="btn-secondary btn-copy" id="btnCopyDeposit"> Copiar endereço de depósito </button>
             </div>
           </div>
@@ -73,6 +75,7 @@
             <select id="actionMode">
               <option value="swap"> Swap </option>
               <option value="send"> Envio </option>
+              <option value="receive"> Receber (Invoice) </option>
               <option value="exit"> Exit </option>
             </select>
             <div id="swapSection">
@@ -106,6 +109,24 @@
               <label for="sendTo"> Endereço Spark de destino </label>
               <input type="text" id="sendTo" placeholder="spark1... | lnbc... | user@domain">
               <button id="btnSend" class="btn-primary"> Enviar </button>
+            </div>
+            <div id="receiveSection" class="hidden">
+              <label for="receiveAmount"> Quantidade de sats (fixa na invoice) </label>
+              <input type="number" id="receiveAmount" min="1" step="1" placeholder="ex: 5000">
+              <label for="receiveMemo"> Memo (opcional) </label>
+              <input type="text" id="receiveMemo" placeholder="Descrição do pagamento" maxlength="120">
+              <button id="btnCreateInvoice" class="btn-primary"> Gerar Spark Invoice </button>
+              <div id="invoiceBox" class="hidden invoice-box">
+                <div class="qr-wrap">
+                  <canvas id="invoiceQr"></canvas>
+                </div>
+                <label> String da invoice </label>
+                <textarea id="invoiceString" readonly rows="4"></textarea>
+                <div class="row row-gap-top">
+                  <button class="btn-secondary btn-copy" id="btnCopyInvoice"> Copiar invoice </button>
+                  <button class="btn-secondary" id="btnNewInvoice"> Nova invoice </button>
+                </div>
+              </div>
             </div>
             <div id="exitSection" class="hidden">
               <label for="exitAmount"> Quantidade de sats </label>
@@ -147,6 +168,40 @@
         </div>
       </div>
     </div>
+
+    <div id="qrModal" class="qr-modal hidden">
+      <div class="qr-modal-content">
+        <button id="btnQrModalClose" class="qr-modal-close" aria-label="Fechar">×</button>
+        <div class="qr-modal-label" id="qrModalLabel"></div>
+        <div class="qr-wrap">
+          <canvas id="qrModalCanvas"></canvas>
+        </div>
+        <div class="qr-modal-addr" id="qrModalAddr"></div>
+      </div>
+    </div>
+
+    <div id="lnbcModal" class="qr-modal hidden">
+      <div class="qr-modal-content lnbc-modal-content">
+        <button id="lnbcModalClose" class="qr-modal-close" aria-label="Fechar">×</button>
+        <div class="qr-modal-label">Confirmar pagamento Lightning</div>
+
+        <div class="lnbc-info" id="lnbcInfo"></div>
+
+        <label class="lnbc-confirm-label">
+          <input type="checkbox" id="lnbcConfirmCheck">
+          <span>Eu conferi os dados acima e confirmo o envio.</span>
+        </label>
+
+        <div class="lnbc-actions">
+          <button id="lnbcCancel" class="btn-secondary">Cancelar</button>
+          <button id="lnbcConfirm" class="btn-primary" disabled>Enviar</button>
+        </div>
+
+        <div class="log" id="lnbcLog"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

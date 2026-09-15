@@ -538,3 +538,20 @@ export async function getLightningFeeEstimate(
     encodedInvoice: invoice
   });
 }
+
+export async function createSparkInvoice(amountSats, memo = "") {
+  if (!state.wallet) {
+    throw new Error("Carteira não conectada");
+  }
+
+  const invoice = await state.wallet.createLightningInvoice({
+    amountSats: Number(amountSats),
+    memo: memo || undefined,
+    includeSparkAddress: true
+  });
+
+  return {
+    id: invoice.id,
+    encoded: invoice.invoice.encodedInvoice
+  };
+}
