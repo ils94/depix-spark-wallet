@@ -1,10 +1,5 @@
-import {
-	state
-} from "./config.js";
-import {
-	$,
-	appendLog
-} from "./dom.js";
+import { state } from "./config.js";
+import { $, appendLog } from "./dom.js";
 
 import {
 	connect,
@@ -23,15 +18,8 @@ import {
 	createSparkInvoice
 } from "./wallet-service.js";
 
-import {
-	simulate,
-	execute
-} from "./swap-service.js";
-
-import {
-	encryptMnemonic,
-	decryptMnemonic
-} from "./crypto-service.js";
+import { simulate, execute } from "./swap-service.js";
+import { encryptMnemonic, decryptMnemonic } from "./crypto-service.js";
 
 import {
 	hasSavedWallet,
@@ -43,17 +31,17 @@ import {
 let bolt11LibPromise = null;
 
 async function loadBolt11Lib() {
-    if (!bolt11LibPromise) {
-        bolt11LibPromise = import(
-            "https://esm.sh/light-bolt11-decoder@3.2.0?bundle"
-        ).then((m) => m.decode);
-    }
-    return bolt11LibPromise;
+	if (!bolt11LibPromise) {
+		bolt11LibPromise = import(
+			"https://esm.sh/light-bolt11-decoder@3.2.0?bundle"
+		).then((m) => m.decode);
+	}
+	return bolt11LibPromise;
 }
 
 async function decodeLightningInvoice(invoice) {
-    const decode = await loadBolt11Lib();
-    return decode(invoice);
+	const decode = await loadBolt11Lib();
+	return decode(invoice);
 }
 
 let lnbcPendingSend = null;
@@ -77,82 +65,71 @@ function fmtDateUnix(sec) {
 }
 
 function renderLnbcInfo(decoded) {
-    // A light-bolt11-decoder retorna um array `sections`
-    const sections = decoded.sections || [];
-    const getSection = (name) =>
-        sections.find((s) => s.name === name);
+	const sections = decoded.sections || [];
+	const getSection = (name) =>
+		sections.find((s) => s.name === name);
 
-    // -------- valor --------
-    const amountSection = getSection("amount");
-    let sats = null;
-    if (amountSection && amountSection.value) {
-        const msat = Number(amountSection.value);
-        if (!Number.isNaN(msat)) {
-            sats = Math.floor(msat / 1000);
-        }
-    }
+	const amountSection = getSection("amount");
+	let sats = null;
+	if (amountSection && amountSection.value) {
+		const msat = Number(amountSection.value);
+		if (!Number.isNaN(msat)) {
+			sats = Math.floor(msat / 1000);
+		}
+	}
 
-    // -------- descrição --------
-    const descSection = getSection("description");
-    const desc = descSection?.value || "(sem descrição)";
+	const descSection = getSection("description");
+	const desc = descSection?.value || "(sem descrição)";
 
-    // -------- payment hash --------
-    const payHashSection = getSection("payment_hash");
-    const payHash = payHashSection?.value || "";
+	const payHashSection = getSection("payment_hash");
+	const payHash = payHashSection?.value || "";
 
-    // -------- timestamp --------
-    const tsSection = getSection("timestamp");
-    const timestamp = tsSection?.value || null;
+	const tsSection = getSection("timestamp");
+	const timestamp = tsSection?.value || null;
 
-    // -------- expiry --------
-    const expirySection = getSection("expiry");
-    const expiry = expirySection?.value || 3600;
-    const expiresAt = timestamp ? timestamp + expiry : null;
+	const expirySection = getSection("expiry");
+	const expiry = expirySection?.value || 3600;
+	const expiresAt = timestamp ? timestamp + expiry : null;
 
-    // -------- rede --------
-    const networkSection = getSection("coin_network");
-    const network = networkSection?.value?.bech32 || "—";
+	const networkSection = getSection("coin_network");
+	const network = networkSection?.value?.bech32 || "—";
 
-    const rows = [
-        `<div class="row-item amount">
-            <span class="k">Valor</span>
-            <span class="v">${
-                sats != null
-                    ? fmtSats(sats)
-                    : "aberto (sem valor)"
-            }</span>
-        </div>`,
-        `<div class="row-item">
-            <span class="k">Descrição</span>
-            <span class="v">${escapeHtml(desc)}</span>
-        </div>`,
-        `<div class="row-item">
-            <span class="k">Rede</span>
-            <span class="v">${escapeHtml(network)}</span>
-        </div>`,
-        `<div class="row-item">
-            <span class="k">Criada em</span>
-            <span class="v">${
-                timestamp
-                    ? fmtDateUnix(timestamp)
-                    : "—"
-            }</span>
-        </div>`,
-        `<div class="row-item">
-            <span class="k">Expira em</span>
-            <span class="v">${
-                expiresAt
-                    ? fmtDateUnix(expiresAt)
-                    : "—"
-            }</span>
-        </div>`,
-        `<div class="row-item">
-            <span class="k">Payment hash</span>
-            <span class="v">${escapeHtml(payHash) || "—"}</span>
-        </div>`
-    ];
+	const rows = [
+		`<div class="row-item amount">
+			<span class="k">Valor</span>
+			<span class="v">${
+				sats != null
+					? fmtSats(sats)
+					: "aberto (sem valor)"
+			}</span>
+		</div>`,
+		`<div class="row-item">
+			<span class="k">Descrição</span>
+			<span class="v">${escapeHtml(desc)}</span>
+		</div>`,
+		`<div class="row-item">
+			<span class="k">Rede</span>
+			<span class="v">${escapeHtml(network)}</span>
+		</div>`,
+		`<div class="row-item">
+			<span class="k">Criada em</span>
+			<span class="v">${
+				timestamp ? fmtDateUnix(timestamp) : "—"
+			}</span>
+		</div>`,
+		`<div class="row-item">
+			<span class="k">Expira em</span>
+			<span class="v">${
+				expiresAt ? fmtDateUnix(expiresAt) : "—"
+			}</span>
+		</div>`,
+		`<div class="row-item">
+			<span class="k">Payment hash</span>
+			<span class="v">${escapeHtml(payHash) || "—"}</span>
+		</div>`
+	];
 
-    $("lnbcInfo").innerHTML = rows.join("");
+	$("lnbcInfo").innerHTML = rows.join("");
 }
 
 function openLnbcModal(invoice, decoded) {
@@ -183,15 +160,13 @@ $("lnbcModal").onclick = (e) => {
 };
 
 $("lnbcConfirmCheck").onchange = () => {
-	$("lnbcConfirm").disabled =
-		!$("lnbcConfirmCheck").checked;
+	$("lnbcConfirm").disabled = !$("lnbcConfirmCheck").checked;
 };
 
 $("lnbcConfirm").onclick = async () => {
 	if (!lnbcPendingSend) return;
 
 	const { invoice } = lnbcPendingSend;
-
 	const btn = $("lnbcConfirm");
 	const lg = $("lnbcLog");
 
@@ -201,15 +176,9 @@ $("lnbcConfirm").onclick = async () => {
 	lg.textContent = "Enviando pagamento Lightning…";
 
 	try {
-		const result = await payLightning(
-			invoice,
-			null,
-			100
-		);
+		const result = await payLightning(invoice, null, 100);
 
-		lg.textContent =
-			"Pagamento enviado com sucesso!";
-
+		lg.textContent = "Pagamento enviado com sucesso!";
 		console.log("Lightning payment:", result);
 
 		closeLnbcModal();
@@ -217,17 +186,13 @@ $("lnbcConfirm").onclick = async () => {
 		await refreshBalances();
 		await refreshTransfers();
 	} catch (e) {
-		lg.textContent =
-			"Erro: " + (e?.message || e);
-
+		lg.textContent = "Erro: " + (e?.message || e);
 		btn.disabled = false;
 		btn.textContent = "Enviar";
 	}
 };
 
-let onchainDepositTimer = null;
 let onchainDepositBusy = false;
-
 const depositQuotes = new Map();
 
 function showInitialView() {
@@ -241,16 +206,12 @@ function showInitialView() {
 }
 
 async function enterWallet() {
-	$("sparkAddr").textContent =
-		await getSparkAddress();
+	$("sparkAddr").textContent = await getSparkAddress();
 
 	try {
-		$("depositAddr").textContent =
-			await getStaticDepositAddress();
+		$("depositAddr").textContent = await getStaticDepositAddress();
 	} catch (e) {
-		$("depositAddr").textContent =
-			"Erro ao gerar endereço";
-
+		$("depositAddr").textContent = "Erro ao gerar endereço";
 		console.error(e);
 	}
 
@@ -268,41 +229,28 @@ $("btnConnect").onclick = async () => {
 	const pw = $("pwdNew").value;
 
 	if (!m) {
-		return alert(
-			"Informe a frase de recuperacao."
-		);
+		return alert("Informe a frase de recuperacao.");
 	}
 
 	if (pw.length < 4) {
-		return alert(
-			"A senha precisa de pelo menos 4 caracteres."
-		);
+		return alert("A senha precisa de pelo menos 4 caracteres.");
 	}
 
 	const btn = $("btnConnect");
 
 	btn.disabled = true;
-	btn.textContent =
-		"Criptografando e conectando…";
+	btn.textContent = "Criptografando e conectando…";
 
 	const lg = $("connectLog");
 	lg.textContent = "";
 
 	try {
-		appendLog(
-			lg,
-			"Criptografando com AES-256-GCM…"
-		);
+		appendLog(lg, "Criptografando com AES-256-GCM…");
 
-		const payload =
-			await encryptMnemonic(m, pw);
-
+		const payload = await encryptMnemonic(m, pw);
 		saveEncryptedWallet(payload);
 
-		appendLog(
-			lg,
-			"Salvo no navegador. Conectando…"
-		);
+		appendLog(lg, "Salvo no navegador. Conectando…");
 
 		await connect(m);
 
@@ -312,11 +260,7 @@ $("btnConnect").onclick = async () => {
 
 		await enterWallet();
 	} catch (e) {
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e)
-		);
-
+		appendLog(lg, "Erro: " + (e?.message || e));
 		btn.disabled = false;
 		btn.textContent = "Salvar e conectar";
 	}
@@ -339,16 +283,9 @@ $("btnUnlock").onclick = async () => {
 
 	try {
 		const stored = loadEncryptedWallet();
+		const mnemonic = await decryptMnemonic(stored, pw);
 
-		const mnemonic = await decryptMnemonic(
-			stored,
-			pw
-		);
-
-		appendLog(
-			lg,
-			"Desbloqueado. Conectando…"
-		);
+		appendLog(lg, "Desbloqueado. Conectando…");
 
 		await connect(mnemonic);
 
@@ -356,14 +293,8 @@ $("btnUnlock").onclick = async () => {
 
 		await enterWallet();
 	} catch (e) {
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e)
-		);
-
-		alert(
-			"Senha incorreta ou dados corrompidos."
-		);
+		appendLog(lg, "Erro: " + (e?.message || e));
+		alert("Senha incorreta ou dados corrompidos.");
 
 		btn.disabled = false;
 		btn.textContent = "Desbloquear carteira";
@@ -422,11 +353,7 @@ $("btnCopyDeposit").onclick = async () => {
 	const addr = $("depositAddr").textContent;
 	const btn = $("btnCopyDeposit");
 
-	if (
-		!addr ||
-		addr === "—" ||
-		addr.startsWith("Erro")
-	) {
+	if (!addr || addr === "—" || addr.startsWith("Erro")) {
 		return;
 	}
 
@@ -455,8 +382,7 @@ function updateClaimsBadge(count) {
 	if (!badge) return;
 
 	if (count > 0) {
-		badge.textContent =
-			count > 99 ? "99+" : String(count);
+		badge.textContent = count > 99 ? "99+" : String(count);
 		badge.classList.remove("hidden");
 	} else {
 		badge.classList.add("hidden");
@@ -468,12 +394,7 @@ async function refreshOnchainDeposits() {
 	const card = $("onchainClaimsCard");
 	const emptyCard = $("noClaimsCard");
 
-	if (
-		!container ||
-		!card ||
-		!state.wallet ||
-		onchainDepositBusy
-	) {
+	if (!container || !card || !state.wallet || onchainDepositBusy) {
 		return;
 	}
 
@@ -484,46 +405,31 @@ async function refreshOnchainDeposits() {
 
 		if (!deposits.length) {
 			card.classList.add("hidden");
-			if (emptyCard) {
-				emptyCard.classList.remove("hidden");
-			}
+			if (emptyCard) emptyCard.classList.remove("hidden");
 			container.innerHTML = "";
 			updateClaimsBadge(0);
 			return;
 		}
 
 		card.classList.remove("hidden");
-		if (emptyCard) {
-			emptyCard.classList.add("hidden");
-		}
+		if (emptyCard) emptyCard.classList.add("hidden");
 		updateClaimsBadge(deposits.length);
 
 		const cards = [];
 
 		for (const deposit of deposits) {
 			const txid = deposit.txid;
-
-			const outputIndex = Number(
-				deposit.vout ?? 0
-			);
-
+			const outputIndex = Number(deposit.vout ?? 0);
 			const key = `${txid}:${outputIndex}`;
 
 			let quote = depositQuotes.get(key);
 
 			if (!quote) {
 				try {
-					quote = await getOnchainDepositQuote(
-						txid,
-						outputIndex
-					);
-
+					quote = await getOnchainDepositQuote(txid, outputIndex);
 					depositQuotes.set(key, quote);
 				} catch (e) {
-					console.warn(
-						"Não foi possível obter quote:",
-						e
-					);
+					console.warn("Não foi possível obter quote:", e);
 				}
 			}
 
@@ -534,60 +440,40 @@ async function refreshOnchainDeposits() {
 
 			const fee =
 				amount != null
-					? Number(
-						quote?.depositAmountSats ?? 0
-					) - amount
+					? Number(quote?.depositAmountSats ?? 0) - amount
 					: null;
 
 			cards.push(`
 				<div class="onchain-deposit">
 					<div class="onchain-deposit-header">
-						<span class="onchain-deposit-title">
-							Depósito BTC
-						</span>
-
-						<span class="onchain-deposit-status">
-							Confirmado
-						</span>
+						<span class="onchain-deposit-title">Depósito BTC</span>
+						<span class="onchain-deposit-status">Confirmado</span>
 					</div>
-
 					<div class="onchain-deposit-row">
 						<span>Valor</span>
-						<strong>
-							${
-								amount != null
-									? amount.toLocaleString("pt-BR") + " sats"
-									: "consultando…"
-							}
-						</strong>
+						<strong>${
+							amount != null
+								? amount.toLocaleString("pt-BR") + " sats"
+								: "consultando…"
+						}</strong>
 					</div>
-
 					${
 						fee != null && fee > 0
 							? `
 								<div class="onchain-deposit-row">
 									<span>Taxa estimada</span>
-									<strong>
-										${fee.toLocaleString("pt-BR")} sats
-									</strong>
+									<strong>${fee.toLocaleString("pt-BR")} sats</strong>
 								</div>
 							`
 							: ""
 					}
-
-					<div class="onchain-deposit-tx">
-						${txid}
-					</div>
-
+					<div class="onchain-deposit-tx">${txid}</div>
 					<button
 						class="btn-primary btn-claim"
 						data-txid="${txid}"
 						data-vout="${outputIndex}"
 						${quote ? "" : "disabled"}
-					>
-						Reivindicar BTC
-					</button>
-
+					>Reivindicar BTC</button>
 					<div class="claim-log"></div>
 				</div>
 			`);
@@ -595,37 +481,22 @@ async function refreshOnchainDeposits() {
 
 		container.innerHTML = cards.join("");
 
-		container
-			.querySelectorAll(".btn-claim")
-			.forEach((btn) => {
-				btn.onclick = async () => {
-					const txid = btn.dataset.txid;
-					const outputIndex = Number(
-						btn.dataset.vout
-					);
-
-					await executeOnchainClaim(
-						btn,
-						txid,
-						outputIndex
-					);
-				};
-			});
+		container.querySelectorAll(".btn-claim").forEach((btn) => {
+			btn.onclick = async () => {
+				const txid = btn.dataset.txid;
+				const outputIndex = Number(btn.dataset.vout);
+				await executeOnchainClaim(btn, txid, outputIndex);
+			};
+		});
 	} catch (e) {
-		console.error(
-			"Erro ao consultar depósitos on-chain:",
-			e
-		);
+		console.error("Erro ao consultar depósitos on-chain:", e);
 
 		card.classList.remove("hidden");
-		if (emptyCard) {
-			emptyCard.classList.add("hidden");
-		}
+		if (emptyCard) emptyCard.classList.add("hidden");
 
 		container.innerHTML = `
 			<div class="tx-meta">
-				Erro ao consultar depósitos:
-				${e?.message || e}
+				Erro ao consultar depósitos: ${e?.message || e}
 			</div>
 		`;
 	} finally {
@@ -633,56 +504,32 @@ async function refreshOnchainDeposits() {
 	}
 }
 
-async function executeOnchainClaim(
-	btn,
-	txid,
-	outputIndex
-) {
+async function executeOnchainClaim(btn, txid, outputIndex) {
 	const originalText = btn.textContent;
-
 	const card = btn.closest(".onchain-deposit");
-
 	const log = card?.querySelector(".claim-log");
 
 	btn.disabled = true;
 	btn.textContent = "Reivindicando…";
 
-	if (log) {
-		log.textContent = "Preparando claim…";
-	}
+	if (log) log.textContent = "Preparando claim…";
 
 	try {
-		if (log) {
-			log.textContent = "Obtendo cotação…";
-		}
+		if (log) log.textContent = "Obtendo cotação…";
 
-		const quote = await getOnchainDepositQuote(
-			txid,
-			outputIndex
-		);
+		const quote = await getOnchainDepositQuote(txid, outputIndex);
 
 		if (!quote) {
-			throw new Error(
-				"Não foi possível obter a cotação do claim"
-			);
+			throw new Error("Não foi possível obter a cotação do claim");
 		}
 
-		if (log) {
-			log.textContent =
-				"Enviando claim para o Spark…";
-		}
+		if (log) log.textContent = "Enviando claim para o Spark…";
 
-		const result = await claimOnchainDeposit(
-			txid,
-			outputIndex
-		);
+		const result = await claimOnchainDeposit(txid, outputIndex);
 
 		console.log("Claim result:", result);
 
-		if (log) {
-			log.textContent =
-				"BTC reivindicado com sucesso!";
-		}
+		if (log) log.textContent = "BTC reivindicado com sucesso!";
 
 		btn.textContent = "Reivindicado";
 		btn.classList.add("copied");
@@ -693,10 +540,7 @@ async function executeOnchainClaim(
 	} catch (e) {
 		console.error("Erro no claim:", e);
 
-		if (log) {
-			log.textContent =
-				"Erro: " + (e?.message || e);
-		}
+		if (log) log.textContent = "Erro: " + (e?.message || e);
 
 		btn.disabled = false;
 		btn.textContent = originalText;
@@ -722,51 +566,39 @@ $("swapDir").onchange = () => {
 		? "Quantidade de sats"
 		: "Quantidade de DePix";
 
-	$("amountIn").placeholder = sats
-		? "ex: 5000"
-		: "ex: 1.5";
+	$("amountIn").placeholder = sats ? "ex: 5000" : "ex: 1.5";
 
 	$("btnSwap").disabled = true;
 	$("btnSwap").textContent = "Executar swap";
 
 	state.lastQuote = null;
-
 	$("quoteBox").classList.remove("show");
-
 	$("swapLog").textContent = "";
 };
 
 $("btnQuote").onclick = async () => {
 	const direction = swapDirection();
-
 	const amt = parseFloat($("amountIn").value);
 
 	if (!amt || amt <= 0) {
-		return alert(
-			`Informe a quantidade de ${swapUnit()}.`
-		);
+		return alert(`Informe a quantidade de ${swapUnit()}.`);
 	}
 
 	if (isSatsInput() && !Number.isInteger(amt)) {
-		return alert(
-			"Informe a quantidade de sats em numero inteiro."
-		);
+		return alert("Informe a quantidade de sats em numero inteiro.");
 	}
 
 	const lg = $("swapLog");
 	lg.textContent = "";
 
 	$("btnSwap").disabled = true;
-
 	state.lastQuote = null;
-
 	$("quoteBox").classList.remove("show");
 
 	try {
 		appendLog(lg, "Simulando swap…");
 
 		const quote = await simulate(direction, amt);
-
 		state.lastQuote = quote;
 
 		$("quoteBox").innerHTML =
@@ -775,42 +607,30 @@ $("btnQuote").onclick = async () => {
 						"pt-BR"
 					)} sats</b> (` +
 					(quote.amountOut / 1e8).toFixed(8) +
-					` BTC)<br>` +
-					`Taxa do pool embutida na cotacao.`
+					` BTC)<br>Taxa do pool embutida na cotacao.`
 				: `Voce recebe aprox. <b>${(
 						quote.amountOut / 1e8
 					).toLocaleString("pt-BR", {
 						maximumFractionDigits: 8
-					})} DePix</b><br>` +
-					`Taxa do pool embutida na cotacao.`;
+					})} DePix</b><br>Taxa do pool embutida na cotacao.`;
 
 		$("quoteBox").classList.add("show");
-
 		$("btnSwap").disabled = false;
 
 		appendLog(lg, "Simulacao OK.");
 	} catch (e) {
-		const extra = String(
-			e?.message || ""
-		).includes("FSAG-1003")
+		const extra = String(e?.message || "").includes("FSAG-1003")
 			? " (valor abaixo do minimo do pool — aumente a quantidade)"
 			: "";
 
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e) + extra
-		);
+		appendLog(lg, "Erro: " + (e?.message || e) + extra);
 	}
 };
 
 $("btnSwap").onclick = async () => {
-	if (!state.lastQuote) {
-		return;
-	}
+	if (!state.lastQuote) return;
 
-	const slipPct =
-		parseFloat($("slippage").value) || 1;
-
+	const slipPct = parseFloat($("slippage").value) || 1;
 	const btn = $("btnSwap");
 	const lg = $("swapLog");
 
@@ -818,31 +638,20 @@ $("btnSwap").onclick = async () => {
 	btn.textContent = "Executando…";
 
 	try {
-		appendLog(
-			lg,
-			"Enviando swap para a pool…"
-		);
+		appendLog(lg, "Enviando swap para a pool…");
 
 		const result = await execute({
 			...state.lastQuote,
 			slippagePct: slipPct
 		});
 
-		appendLog(
-			lg,
-			"Swap executado: " +
-				JSON.stringify(result).slice(0, 400)
-		);
+		appendLog(lg, "Swap executado: " + JSON.stringify(result).slice(0, 400));
 
 		btn.textContent = "Executar swap";
 
 		await refreshBalances();
 	} catch (e) {
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e)
-		);
-
+		appendLog(lg, "Erro: " + (e?.message || e));
 		btn.disabled = false;
 		btn.textContent = "Executar swap";
 	}
@@ -851,25 +660,10 @@ $("btnSwap").onclick = async () => {
 function updateActionMode() {
 	const mode = $("actionMode").value;
 
-	$("swapSection").classList.toggle(
-		"hidden",
-		mode !== "swap"
-	);
-
-	$("sendSection").classList.toggle(
-		"hidden",
-		mode !== "send"
-	);
-
-	$("receiveSection").classList.toggle(
-		"hidden",
-		mode !== "receive"
-	);
-
-	$("exitSection").classList.toggle(
-		"hidden",
-		mode !== "exit"
-	);
+	$("swapSection").classList.toggle("hidden", mode !== "swap");
+	$("sendSection").classList.toggle("hidden", mode !== "send");
+	$("receiveSection").classList.toggle("hidden", mode !== "receive");
+	$("exitSection").classList.toggle("hidden", mode !== "exit");
 
 	$("swapLog").textContent = "";
 
@@ -879,20 +673,14 @@ function updateActionMode() {
 	state.lastQuote = null;
 	state.lastExitQuote = null;
 
-	if ($("quoteBox")) {
-		$("quoteBox").classList.remove("show");
-	}
-
-	if ($("exitQuoteBox")) {
-		$("exitQuoteBox").classList.remove("show");
-	}
+	if ($("quoteBox")) $("quoteBox").classList.remove("show");
+	if ($("exitQuoteBox")) $("exitQuoteBox").classList.remove("show");
 }
 
 $("actionMode").onchange = updateActionMode;
 
 $("sendAsset").onchange = () => {
-	const isBtc =
-		$("sendAsset").value === "btc";
+	const isBtc = $("sendAsset").value === "btc";
 
 	$("sendAmountLabel").textContent = isBtc
 		? "Quantidade de sats (só p/ Lightning Address)"
@@ -903,8 +691,7 @@ $("sendAsset").onchange = () => {
 		: "ex: 1.5";
 
 	if (isBtc) {
-		$("sendTo").placeholder =
-			"spark1... | lnbc... | user@domain";
+		$("sendTo").placeholder = "spark1... | lnbc... | user@domain";
 	} else {
 		$("sendTo").placeholder = "spark1...";
 	}
@@ -912,9 +699,7 @@ $("sendAsset").onchange = () => {
 
 $("btnSend").onclick = async () => {
 	const asset = $("sendAsset").value;
-
 	const amount = parseFloat($("sendAmount").value);
-
 	const to = $("sendTo").value.trim();
 
 	if (!to) {
@@ -922,25 +707,14 @@ $("btnSend").onclick = async () => {
 	}
 
 	const isBolt11 = /^ln(bc|tb|sb)/i.test(to);
+	const isLnAddress = !isBolt11 && to.includes("@");
 
-	const isLnAddress =
-		!isBolt11 && to.includes("@");
-
-	if (
-		!isBolt11 &&
-		(!amount || amount <= 0)
-	) {
+	if (!isBolt11 && (!amount || amount <= 0)) {
 		return alert("Informe uma quantidade válida");
 	}
 
-	if (
-		asset === "btc" &&
-		!isBolt11 &&
-		!Number.isInteger(amount)
-	) {
-		return alert(
-			"Quantidade de sats deve ser um número inteiro"
-		);
+	if (asset === "btc" && !isBolt11 && !Number.isInteger(amount)) {
+		return alert("Quantidade de sats deve ser um número inteiro");
 	}
 
 	const btn = $("btnSend");
@@ -961,60 +735,30 @@ $("btnSend").onclick = async () => {
 				);
 			}
 
-			appendLog(
-				lg,
-				`Enviando ${amount} DePix para ${to.slice(
-					0,
-					14
-				)}…`
-			);
+			appendLog(lg, `Enviando ${amount} DePix para ${to.slice(0, 14)}…`);
 
 			result = await sendDepix(to, amount);
 		} else {
 			if (to.startsWith("spark1")) {
-				appendLog(
-					lg,
-					`Enviando ${amount} sats (Spark) para ${to.slice(
-						0,
-						14
-					)}…`
-				);
-
+				appendLog(lg, `Enviando ${amount} sats (Spark) para ${to.slice(0, 14)}…`);
 				result = await sendBtc(to, amount);
 			} else if (isBolt11) {
-				appendLog(
-					lg,
-					"Decodificando invoice Lightning…"
-				);
+				appendLog(lg, "Decodificando invoice Lightning…");
 
 				let decoded;
 				try {
-					decoded =
-						await decodeLightningInvoice(to);
+					decoded = await decodeLightningInvoice(to);
 				} catch (e) {
 					throw new Error(
-						"Não foi possível decodificar a invoice: " +
-							(e?.message || e)
+						"Não foi possível decodificar a invoice: " + (e?.message || e)
 					);
 				}
 
 				openLnbcModal(to, decoded);
-
 				return;
 			} else if (isLnAddress) {
-				appendLog(
-					lg,
-					`Enviando via Lightning para ${to.slice(
-						0,
-						24
-					)}…`
-				);
-
-				result = await payLightning(
-					to,
-					amount,
-					100
-				);
+				appendLog(lg, `Enviando via Lightning para ${to.slice(0, 24)}…`);
+				result = await payLightning(to, amount, 100);
 			} else {
 				throw new Error(
 					"Destino inválido. Use spark1..., lnbc... ou user@domain"
@@ -1023,7 +767,6 @@ $("btnSend").onclick = async () => {
 		}
 
 		appendLog(lg, "Envio concluído com sucesso!");
-
 		console.log(result);
 
 		$("sendAmount").value = "";
@@ -1032,10 +775,7 @@ $("btnSend").onclick = async () => {
 		await refreshBalances();
 		await refreshTransfers();
 	} catch (e) {
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e)
-		);
+		appendLog(lg, "Erro: " + (e?.message || e));
 	} finally {
 		btn.disabled = false;
 		btn.textContent = "Enviar";
@@ -1045,13 +785,8 @@ $("btnSend").onclick = async () => {
 state.lastExitQuote = null;
 
 $("btnExitQuote").onclick = async () => {
-	const amount = parseInt(
-		$("exitAmount").value,
-		10
-	);
-
+	const amount = parseInt($("exitAmount").value, 10);
 	const address = $("exitAddress").value.trim();
-
 	const speed = $("exitSpeed").value;
 
 	if (!amount || amount <= 0) {
@@ -1066,33 +801,23 @@ $("btnExitQuote").onclick = async () => {
 			address.startsWith("3")
 		)
 	) {
-		return alert(
-			"Informe um endereço Bitcoin on-chain válido"
-		);
+		return alert("Informe um endereço Bitcoin on-chain válido");
 	}
 
 	const lg = $("swapLog");
 
 	lg.textContent = "";
-
 	$("btnExit").disabled = true;
-
 	state.lastExitQuote = null;
-
 	$("exitQuoteBox").classList.remove("show");
 
 	try {
 		appendLog(lg, "Consultando taxa de exit…");
 
-		const quote = await getExitFeeQuote(
-			amount,
-			address
-		);
+		const quote = await getExitFeeQuote(amount, address);
 
 		if (!quote) {
-			throw new Error(
-				"Não foi possível obter cotação de taxa"
-			);
+			throw new Error("Não foi possível obter cotação de taxa");
 		}
 
 		state.lastExitQuote = quote;
@@ -1114,46 +839,26 @@ $("btnExitQuote").onclick = async () => {
 		}
 
 		$("exitQuoteBox").innerHTML =
-			`Destinatário recebe: <b>${amount.toLocaleString(
-				"pt-BR"
-			)} sats</b><br>` +
-			`Taxa (paga do seu saldo): <b>${fee.toLocaleString(
-				"pt-BR"
-			)} sats</b> (${speed})<br>` +
-			`Total debitado da Spark: <b>${(
-				amount + fee
-			).toLocaleString("pt-BR")} sats</b><br>` +
-			`Cotação válida até: ${new Date(
-				quote.expiresAt
-			).toLocaleString("pt-BR")}`;
+			`Destinatário recebe: <b>${amount.toLocaleString("pt-BR")} sats</b><br>` +
+			`Taxa (paga do seu saldo): <b>${fee.toLocaleString("pt-BR")} sats</b> (${speed})<br>` +
+			`Total debitado da Spark: <b>${(amount + fee).toLocaleString("pt-BR")} sats</b><br>` +
+			`Cotação válida até: ${new Date(quote.expiresAt).toLocaleString("pt-BR")}`;
 
 		$("exitQuoteBox").classList.add("show");
-
 		$("btnExit").disabled = false;
 
 		appendLog(lg, "Cotação OK.");
 	} catch (e) {
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e)
-		);
+		appendLog(lg, "Erro: " + (e?.message || e));
 	}
 };
 
 $("btnExit").onclick = async () => {
-	if (!state.lastExitQuote) {
-		return;
-	}
+	if (!state.lastExitQuote) return;
 
-	const amount = parseInt(
-		$("exitAmount").value,
-		10
-	);
-
+	const amount = parseInt($("exitAmount").value, 10);
 	const address = $("exitAddress").value.trim();
-
 	const speed = $("exitSpeed").value;
-
 	const btn = $("btnExit");
 	const lg = $("swapLog");
 
@@ -1163,13 +868,7 @@ $("btnExit").onclick = async () => {
 	lg.textContent = "";
 
 	try {
-		appendLog(
-			lg,
-			`Iniciando exit de ${amount} sats para ${address.slice(
-				0,
-				12
-			)}…`
-		);
+		appendLog(lg, `Iniciando exit de ${amount} sats para ${address.slice(0, 12)}…`);
 
 		const result = await executeExit({
 			onchainAddress: address,
@@ -1179,36 +878,22 @@ $("btnExit").onclick = async () => {
 			deductFee: false
 		});
 
-		appendLog(
-			lg,
-			"Exit iniciado com sucesso!"
-		);
+		appendLog(lg, "Exit iniciado com sucesso!");
 
-		if (result?.id) {
-			appendLog(lg, "ID: " + result.id);
-		}
-
+		if (result?.id) appendLog(lg, "ID: " + result.id);
 		if (result?.coopExitTxid) {
-			appendLog(
-				lg,
-				"Txid on-chain: " + result.coopExitTxid
-			);
+			appendLog(lg, "Txid on-chain: " + result.coopExitTxid);
 		}
 
 		$("exitAmount").value = "";
 		$("exitAddress").value = "";
-
 		state.lastExitQuote = null;
-
 		$("exitQuoteBox").classList.remove("show");
 
 		await refreshBalances();
 		await refreshTransfers();
 	} catch (e) {
-		appendLog(
-			lg,
-			"Erro: " + (e?.message || e)
-		);
+		appendLog(lg, "Erro: " + (e?.message || e));
 	} finally {
 		btn.disabled = false;
 		btn.textContent = "Executar Exit";
@@ -1217,9 +902,7 @@ $("btnExit").onclick = async () => {
 
 $("exitSpeed").onchange = () => {
 	state.lastExitQuote = null;
-
 	$("btnExit").disabled = true;
-
 	$("exitQuoteBox").classList.remove("show");
 };
 
@@ -1238,38 +921,21 @@ $("btnCheckClaims").onclick = async () => {
 };
 
 function switchTab(tabName) {
-	document
-		.querySelectorAll(".tab-btn")
-		.forEach((b) => {
-			b.classList.toggle(
-				"active",
-				b.dataset.tab === tabName
-			);
-		});
+	document.querySelectorAll(".tab-btn").forEach((b) => {
+		b.classList.toggle("active", b.dataset.tab === tabName);
+	});
 
-	document
-		.querySelectorAll(".tab-panel")
-		.forEach((p) => {
-			const targetId =
-				"tabPanel" +
-				tabName.charAt(0).toUpperCase() +
-				tabName.slice(1);
-
-			p.classList.toggle(
-				"active",
-				p.id === targetId
-			);
-		});
+	document.querySelectorAll(".tab-panel").forEach((p) => {
+		const targetId =
+			"tabPanel" + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+		p.classList.toggle("active", p.id === targetId);
+	});
 }
 
 function initTabs() {
-	document
-		.querySelectorAll(".tab-btn")
-		.forEach((btn) => {
-			btn.addEventListener("click", () =>
-				switchTab(btn.dataset.tab)
-			);
-		});
+	document.querySelectorAll(".tab-btn").forEach((btn) => {
+		btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+	});
 }
 
 async function renderQr(canvasId, text) {
@@ -1277,14 +943,11 @@ async function renderQr(canvasId, text) {
 
 	if (!canvas || typeof QRCode === "undefined") {
 		throw new Error(
-			"Lib de QR Code não carregada. " +
-				"Adicione o script qrcode no index.html."
+			"Lib de QR Code não carregada. Adicione o script qrcode no index.html."
 		);
 	}
 
-	canvas
-		.getContext("2d")
-		.clearRect(0, 0, canvas.width, canvas.height);
+	canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
 
 	await QRCode.toCanvas(canvas, text, {
 		width: 240,
@@ -1293,17 +956,11 @@ async function renderQr(canvasId, text) {
 }
 
 $("btnCreateInvoice").onclick = async () => {
-	const amount = parseInt(
-		$("receiveAmount").value,
-		10
-	);
-
+	const amount = parseInt($("receiveAmount").value, 10);
 	const memo = $("receiveMemo").value.trim();
 
 	if (!amount || amount <= 0) {
-		return alert(
-			"Informe a quantidade de sats da invoice"
-		);
+		return alert("Informe a quantidade de sats da invoice");
 	}
 
 	const btn = $("btnCreateInvoice");
@@ -1312,8 +969,7 @@ $("btnCreateInvoice").onclick = async () => {
 	btn.textContent = "Gerando…";
 
 	try {
-		const { id, encoded } =
-			await createSparkInvoice(amount, memo);
+		const { id, encoded } = await createSparkInvoice(amount, memo);
 
 		$("invoiceString").value = encoded;
 
@@ -1333,34 +989,26 @@ $("btnCreateInvoice").onclick = async () => {
 $("btnCopyInvoice").onclick = async () => {
 	const inv = $("invoiceString").value;
 
-	if (!inv) {
-		return;
-	}
+	if (!inv) return;
 
 	await navigator.clipboard.writeText(inv);
 
 	$("btnCopyInvoice").textContent = "Copiado!";
 
 	setTimeout(() => {
-		$("btnCopyInvoice").textContent =
-			"Copiar invoice";
+		$("btnCopyInvoice").textContent = "Copiar invoice";
 	}, 1500);
 };
 
 $("btnNewInvoice").onclick = () => {
 	$("invoiceBox").classList.add("hidden");
-
 	$("invoiceString").value = "";
 	$("receiveAmount").value = "";
 	$("receiveMemo").value = "";
 };
 
 function openQrModal(label, addr) {
-	if (
-		!addr ||
-		addr === "—" ||
-		addr.startsWith("Erro")
-	) {
+	if (!addr || addr === "—" || addr.startsWith("Erro")) {
 		return;
 	}
 
@@ -1373,17 +1021,11 @@ function openQrModal(label, addr) {
 }
 
 $("btnQrSpark").onclick = () => {
-	openQrModal(
-		"Seu endereço Spark",
-		$("sparkAddr").textContent.trim()
-	);
+	openQrModal("Seu endereço Spark", $("sparkAddr").textContent.trim());
 };
 
 $("btnQrDeposit").onclick = () => {
-	openQrModal(
-		"Depositar BTC on-chain",
-		$("depositAddr").textContent.trim()
-	);
+	openQrModal("Depositar BTC on-chain", $("depositAddr").textContent.trim());
 };
 
 $("btnQrModalClose").onclick = () => {
@@ -1396,31 +1038,32 @@ $("qrModal").onclick = (e) => {
 	}
 };
 
-let html5QrcodeLibPromise = null;
+let qrScannerInstance = null;
 
-let activeScanner = null;
-let scannerBusy = false;
-let scannerStopRequested = false;
+async function loadQrScannerLib() {
+    if (typeof window.QrScanner !== "undefined") {
+        return window.QrScanner;
+    }
 
-async function loadHtml5QrcodeLib() {
-	if (!html5QrcodeLibPromise) {
-		html5QrcodeLibPromise = new Promise((resolve, reject) => {
-			if (typeof window.Html5Qrcode !== "undefined") {
-				return resolve(window.Html5Qrcode);
-			}
-			const s = document.createElement("script");
-			s.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
-			s.async = true;
-			s.onload = () => resolve(window.Html5Qrcode);
-			s.onerror = () => reject(new Error("Falha ao baixar html5-qrcode"));
-			document.head.appendChild(s);
-		});
-	}
-	return html5QrcodeLibPromise;
+    return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.legacy.min.js";
+        s.async = true;
+        s.onload = () => {
+            if (typeof window.QrScanner !== "undefined") {
+                resolve(window.QrScanner);
+            } else {
+                reject(new Error("QrScanner não disponível após carregar o script"));
+            }
+        };
+        s.onerror = () => reject(new Error("Falha ao baixar qr-scanner"));
+        document.head.appendChild(s);
+    });
 }
 
 function normalizeQrPayload(raw) {
 	if (!raw) return "";
+
 	let s = String(raw).trim();
 	const lower = s.toLowerCase();
 
@@ -1447,149 +1090,87 @@ function normalizeQrPayload(raw) {
 
 function handleQrScanned(decodedText) {
 	const cleaned = normalizeQrPayload(decodedText);
+
 	if (!cleaned) {
 		$("scanLog").textContent = "QR vazio ou inválido.";
 		return;
 	}
+
 	$("sendTo").value = cleaned;
 	closeScanModal();
 }
 
-async function safeStopAndClear(instance) {
-	if (!instance) return;
+async function stopScanner() {
+	if (!qrScannerInstance) return;
+
 	try {
-		const state = instance.getState?.();
-		if (state === 1 || state === 2) {
-			await instance.stop();
-		}
+		qrScannerInstance.stop();
 	} catch (e) {
 		console.warn("stop() falhou:", e);
 	}
+
 	try {
-		instance.clear();
+		qrScannerInstance.destroy();
 	} catch (e) {
-		console.warn("clear() falhou:", e);
+		console.warn("destroy() falhou:", e);
 	}
+
+	qrScannerInstance = null;
 }
 
 function closeScanModal() {
 	$("scanModal").classList.add("hidden");
-
-	scannerStopRequested = true;
-
-	const inst = activeScanner;
-	activeScanner = null;
-
-	if (inst) {
-		safeStopAndClear(inst).finally(() => {
-			scannerBusy = false;
-		});
-	} else {
-		scannerBusy = false;
-	}
+	stopScanner();
 }
 
 async function openScanModal() {
-	if (scannerBusy) {
-		console.warn("Scanner já está em transição, ignorando clique");
-		return;
-	}
-
 	$("scanLog").textContent = "Iniciando câmera…";
 	$("scanModal").classList.remove("hidden");
 
-	scannerBusy = true;
-	scannerStopRequested = false;
+	await stopScanner();
+
+	const reader = $("scanReader");
+	reader.innerHTML = "";
+
+	const video = document.createElement("video");
+	video.setAttribute("muted", "");
+	video.setAttribute("playsinline", "");
+	video.style.width = "100%";
+	video.style.height = "100%";
+	video.style.objectFit = "cover";
+	reader.appendChild(video);
 
 	try {
-		const Html5Qrcode = await loadHtml5QrcodeLib();
+		const QrScanner = await loadQrScannerLib();
 
-		if (scannerStopRequested) {
-			scannerBusy = false;
-			return;
-		}
-
-		const instance = new Html5Qrcode("scanReader", { verbose: false });
-		activeScanner = instance;
-
-		const config = {
-			fps: 15,
-			qrbox: (vw, vh) => {
-				const minEdge = Math.min(vw, vh);
-				const size = Math.floor(minEdge * 0.75);
-				return { width: size, height: size };
-			},
-			experimentalFeatures: {
-				useBarCodeDetectorIfSupported: true
+		qrScannerInstance = new QrScanner(
+			video,
+			(result) => handleQrScanned(result.data ?? result),
+			{
+				preferredCamera: "environment",
+				maxScansPerSecond: 15,
+				highlightScanRegion: true,
+				highlightCodeOutline: true,
+				returnDetailedScanResult: true
 			}
-		};
+		);
 
-		const onScan = (text) => handleQrScanned(text);
-		const onErr = () => { /* frame sem QR */ };
-
-		try {
-			await instance.start(
-				{ facingMode: { ideal: "environment" } },
-				config,
-				onScan,
-				onErr
-			);
-		} catch (e) {
-			if (scannerStopRequested) {
-				await safeStopAndClear(instance);
-				activeScanner = null;
-				scannerBusy = false;
-				return;
-			}
-
-			console.warn("environment falhou, tentando deviceId…", e);
-
-			try { instance.clear(); } catch {}
-
-			const cameras = await Html5Qrcode.getCameras();
-			if (!cameras || !cameras.length) {
-				throw new Error("Nenhuma câmera encontrada");
-			}
-
-			const back = cameras.find((c) =>
-				/back|rear|traseira|environment/i.test(c.label || "")
-			);
-			const chosen = back || cameras[0];
-
-			const instance2 = new Html5Qrcode("scanReader", { verbose: false });
-			activeScanner = instance2;
-
-			await instance2.start(
-				{ deviceId: { exact: chosen.id } },
-				config,
-				onScan,
-				onErr
-			);
-		}
+		await qrScannerInstance.start();
 
 		$("scanLog").textContent = "Procurando QR Code…";
-
-		if (scannerStopRequested) {
-			await safeStopAndClear(activeScanner);
-			activeScanner = null;
-		}
 	} catch (e) {
-		console.error("Erro ao abrir câmera:", e);
-		$("scanLog").textContent =
-			"Não foi possível acessar a câmera: " +
-			(e?.message || e);
+		console.error("Erro ao iniciar scanner:", e);
 
-		if (activeScanner) {
-			await safeStopAndClear(activeScanner);
-			activeScanner = null;
-		}
-	} finally {
-		scannerBusy = false;
+		$("scanLog").textContent =
+			"Erro ao acessar a câmera: " + (e?.message || e);
+
+		await stopScanner();
 	}
 }
 
 $("btnScanQr").onclick = openScanModal;
 $("scanModalClose").onclick = closeScanModal;
+
 $("scanModal").onclick = (e) => {
 	if (e.target === $("scanModal")) closeScanModal();
 };
@@ -1603,18 +1184,16 @@ $("scanFileInput").onchange = async (e) => {
 	if (!file) return;
 
 	try {
-		const Html5Qrcode = await loadHtml5QrcodeLib();
+		const QrScanner = await loadQrScannerLib();
 
-		const tmp = new Html5Qrcode("scanReader", { verbose: false });
-		const text = await tmp.scanFile(file, /* showImage */ false);
+		const result = await QrScanner.scanImage(file, {
+			returnDetailedScanResult: true
+		});
 
-		try { tmp.clear(); } catch {}
-
-		handleQrScanned(text);
+		handleQrScanned(result.data ?? result);
 	} catch (err) {
 		console.error("Falha ao ler imagem:", err);
-		$("scanLog").textContent =
-			"Não foi possível ler o QR da imagem.";
+		$("scanLog").textContent = "Não foi possível ler o QR da imagem.";
 	} finally {
 		e.target.value = "";
 	}
