@@ -2,6 +2,12 @@ import { state } from "./config.js";
 import { $, appendLog } from "./dom.js";
 
 import {
+	fetchBtcBrl,
+	formatBrl,
+	computeSpread
+} from "./binance-service.js";
+
+import {
 	connect,
 	refreshBalances,
 	getSparkAddress,
@@ -628,18 +634,59 @@ $("btnQuote").onclick = async () => {
 		const quote = await simulate(direction, amt);
 		state.lastQuote = quote;
 
+		let binanceInfo = "";
+		try {
+			const btcBrl = await fetchBtcBrl();
+			const { spreadPct, refOut, outUnit } = computeSpread(
+				direction,
+				amt,
+				quote.amountOut
+			);
+
+			// Para exibir o "amountOut" da pool em unidade legível
+			const poolOut =
+				direction === "depixToBtc"
+					? quote.amountOut
+					: quote.amountOut / 1e8;
+
+			const sign = spreadPct >= 0 ? "+" : "";
+			const color = spreadPct >= 0 ? "#ff6b81" : "#22c55e";
+			const label = spreadPct >= 0 ? "Ágio" : "Deságio";
+
+			const fmtNum = (n) =>
+				Number(n).toLocaleString("pt-BR", {
+					maximumFractionDigits: outUnit === "sats" ? 0 : 8
+				});
+
+			binanceInfo =
+				`<br><span style="color:var(--mut); font-size:0.82em;">` +
+				`Binance BTC/BRL: ${formatBrl(btcBrl)}<br>` +
+				`Spark (pool): <b>${fmtNum(poolOut)} ${outUnit}</b><br>` +
+				`Binance: <b>${fmtNum(refOut)} ${outUnit}</b><br>` +
+				`${label} vs Binance: <b style="color:${color}">${sign}${spreadPct.toFixed(2)}%</b>` +
+				`</span>`;
+		} catch (e) {
+			console.warn("Binance indisponível:", e);
+			binanceInfo =
+				`<br><span style="color:var(--mut); font-size:0.82em;">` +
+				`Binance indisponível no momento` +
+				`</span>`;
+		}
+
 		$("quoteBox").innerHTML =
 			direction === "depixToBtc"
 				? `Voce recebe aprox. <b>${quote.amountOut.toLocaleString(
 						"pt-BR"
 					)} sats</b> (` +
 					(quote.amountOut / 1e8).toFixed(8) +
-					` BTC)<br>Taxa do pool embutida na cotacao.`
+					` BTC)` +
+					binanceInfo
 				: `Voce recebe aprox. <b>${(
 						quote.amountOut / 1e8
 					).toLocaleString("pt-BR", {
 						maximumFractionDigits: 8
-					})} DePix</b><br>Taxa do pool embutida na cotacao.`;
+					})} DePix</b>` +
+					binanceInfo;
 
 		$("quoteBox").classList.add("show");
 		$("btnSwap").disabled = false;
