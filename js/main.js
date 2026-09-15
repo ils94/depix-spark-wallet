@@ -1396,6 +1396,230 @@ $("qrModal").onclick = (e) => {
 	}
 };
 
+let html5QrcodeLibPromise = null;
+
+let activeScanner = null;
+let scannerBusy = false;
+let scannerStopRequested = false;
+
+async function loadHtml5QrcodeLib() {
+	if (!html5QrcodeLibPromise) {
+		html5QrcodeLibPromise = new Promise((resolve, reject) => {
+			if (typeof window.Html5Qrcode !== "undefined") {
+				return resolve(window.Html5Qrcode);
+			}
+			const s = document.createElement("script");
+			s.src = "https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js";
+			s.async = true;
+			s.onload = () => resolve(window.Html5Qrcode);
+			s.onerror = () => reject(new Error("Falha ao baixar html5-qrcode"));
+			document.head.appendChild(s);
+		});
+	}
+	return html5QrcodeLibPromise;
+}
+
+function normalizeQrPayload(raw) {
+	if (!raw) return "";
+	let s = String(raw).trim();
+	const lower = s.toLowerCase();
+
+	if (lower.startsWith("bitcoin:")) {
+		s = s.slice("bitcoin:".length);
+		const qIdx = s.indexOf("?");
+		if (qIdx !== -1) s = s.slice(0, qIdx);
+		return s.trim();
+	}
+
+	if (lower.startsWith("lightning:")) {
+		s = s.slice("lightning:".length).trim();
+		const qIdx = s.indexOf("?");
+		if (qIdx !== -1) s = s.slice(0, qIdx);
+		return s.trim();
+	}
+
+	if (lower.startsWith("lnurl:")) {
+		return s.slice("lnurl:".length).trim();
+	}
+
+	return s;
+}
+
+function handleQrScanned(decodedText) {
+	const cleaned = normalizeQrPayload(decodedText);
+	if (!cleaned) {
+		$("scanLog").textContent = "QR vazio ou inválido.";
+		return;
+	}
+	$("sendTo").value = cleaned;
+	closeScanModal();
+}
+
+async function safeStopAndClear(instance) {
+	if (!instance) return;
+	try {
+		const state = instance.getState?.();
+		if (state === 1 || state === 2) {
+			await instance.stop();
+		}
+	} catch (e) {
+		console.warn("stop() falhou:", e);
+	}
+	try {
+		instance.clear();
+	} catch (e) {
+		console.warn("clear() falhou:", e);
+	}
+}
+
+function closeScanModal() {
+	$("scanModal").classList.add("hidden");
+
+	scannerStopRequested = true;
+
+	const inst = activeScanner;
+	activeScanner = null;
+
+	if (inst) {
+		safeStopAndClear(inst).finally(() => {
+			scannerBusy = false;
+		});
+	} else {
+		scannerBusy = false;
+	}
+}
+
+async function openScanModal() {
+	if (scannerBusy) {
+		console.warn("Scanner já está em transição, ignorando clique");
+		return;
+	}
+
+	$("scanLog").textContent = "Iniciando câmera…";
+	$("scanModal").classList.remove("hidden");
+
+	scannerBusy = true;
+	scannerStopRequested = false;
+
+	try {
+		const Html5Qrcode = await loadHtml5QrcodeLib();
+
+		if (scannerStopRequested) {
+			scannerBusy = false;
+			return;
+		}
+
+		const instance = new Html5Qrcode("scanReader", { verbose: false });
+		activeScanner = instance;
+
+		const config = {
+			fps: 15,
+			qrbox: (vw, vh) => {
+				const minEdge = Math.min(vw, vh);
+				const size = Math.floor(minEdge * 0.75);
+				return { width: size, height: size };
+			},
+			experimentalFeatures: {
+				useBarCodeDetectorIfSupported: true
+			}
+		};
+
+		const onScan = (text) => handleQrScanned(text);
+		const onErr = () => { /* frame sem QR */ };
+
+		try {
+			await instance.start(
+				{ facingMode: { ideal: "environment" } },
+				config,
+				onScan,
+				onErr
+			);
+		} catch (e) {
+			if (scannerStopRequested) {
+				await safeStopAndClear(instance);
+				activeScanner = null;
+				scannerBusy = false;
+				return;
+			}
+
+			console.warn("environment falhou, tentando deviceId…", e);
+
+			try { instance.clear(); } catch {}
+
+			const cameras = await Html5Qrcode.getCameras();
+			if (!cameras || !cameras.length) {
+				throw new Error("Nenhuma câmera encontrada");
+			}
+
+			const back = cameras.find((c) =>
+				/back|rear|traseira|environment/i.test(c.label || "")
+			);
+			const chosen = back || cameras[0];
+
+			const instance2 = new Html5Qrcode("scanReader", { verbose: false });
+			activeScanner = instance2;
+
+			await instance2.start(
+				{ deviceId: { exact: chosen.id } },
+				config,
+				onScan,
+				onErr
+			);
+		}
+
+		$("scanLog").textContent = "Procurando QR Code…";
+
+		if (scannerStopRequested) {
+			await safeStopAndClear(activeScanner);
+			activeScanner = null;
+		}
+	} catch (e) {
+		console.error("Erro ao abrir câmera:", e);
+		$("scanLog").textContent =
+			"Não foi possível acessar a câmera: " +
+			(e?.message || e);
+
+		if (activeScanner) {
+			await safeStopAndClear(activeScanner);
+			activeScanner = null;
+		}
+	} finally {
+		scannerBusy = false;
+	}
+}
+
+$("btnScanQr").onclick = openScanModal;
+$("scanModalClose").onclick = closeScanModal;
+$("scanModal").onclick = (e) => {
+	if (e.target === $("scanModal")) closeScanModal();
+};
+
+$("scanFromFile").onclick = () => {
+	$("scanFileInput").click();
+};
+
+$("scanFileInput").onchange = async (e) => {
+	const file = e.target.files?.[0];
+	if (!file) return;
+
+	try {
+		const Html5Qrcode = await loadHtml5QrcodeLib();
+
+		const tmp = new Html5Qrcode("scanReader", { verbose: false });
+		const text = await tmp.scanFile(file, /* showImage */ false);
+
+		try { tmp.clear(); } catch {}
+
+		handleQrScanned(text);
+	} catch (err) {
+		console.error("Falha ao ler imagem:", err);
+		$("scanLog").textContent =
+			"Não foi possível ler o QR da imagem.";
+	} finally {
+		e.target.value = "";
+	}
+};
+
 initTabs();
 updateActionMode();
 showInitialView();

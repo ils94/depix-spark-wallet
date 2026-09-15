@@ -107,7 +107,21 @@
               <label for="sendAmount" id="sendAmountLabel"> Quantidade de sats </label>
               <input type="number" id="sendAmount" min="0" step="any" placeholder="ex: 5000">
               <label for="sendTo"> Endereço Spark de destino </label>
-              <input type="text" id="sendTo" placeholder="spark1... | lnbc... | user@domain">
+              <div class="input-with-btn">
+                <input type="text" id="sendTo" placeholder="spark1... | lnbc... | user@domain">
+                <button type="button" id="btnScanQr" class="btn-icon" title="Ler QR Code">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+                    <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+                    <rect x="7" y="7" width="3" height="3"/>
+                    <rect x="14" y="7" width="3" height="3"/>
+                    <rect x="7" y="14" width="3" height="3"/>
+                    <path d="M14 14h3v3h-3z"/>
+                  </svg>
+                </button>
+              </div>
               <button id="btnSend" class="btn-primary"> Enviar </button>
             </div>
             <div id="receiveSection" class="hidden">
@@ -198,6 +212,17 @@
         </div>
 
         <div class="log" id="lnbcLog"></div>
+      </div>
+    </div>
+
+    <div id="scanModal" class="qr-modal hidden">
+      <div class="qr-modal-content scan-modal-content">
+        <button id="scanModalClose" class="qr-modal-close" aria-label="Fechar">×</button>
+        <div class="qr-modal-label">Aponte a câmera para o QR Code</div>
+        <div id="scanReader" class="scan-reader"></div>
+        <button id="scanFromFile" class="btn-secondary">Carregar imagem do QR</button>
+        <input type="file" id="scanFileInput" accept="image/*" hidden>
+        <div class="log" id="scanLog"></div>
       </div>
     </div>
 
