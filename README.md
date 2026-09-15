@@ -12,6 +12,8 @@ Web Wallet simples para verificar saldo de Bitcoin e DePix na Spark e fazer Swap
 - Claim de recebimentos on-chain
 - Swap DePix → BTC / BTC → DePix com simulação e proteção de slippage
 - Envio para outro endereço Spark e endereço Lightning
+- Geração de Spark Invoices
+- Pagamentos de LNBCs
 - Exit (enviar da Spark para on-chain)
 - Histórico de transferências BTC e transações DePix
 
