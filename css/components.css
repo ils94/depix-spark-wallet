@@ -376,3 +376,41 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 #scanReader__dashboard_section_csr span {
   display: none !important;
 }
+
+.btn-icon svg {
+  pointer-events: none;
+}
+
+.btn-icon .eye-closed {
+  display: none;
+}
+
+.btn-icon.showing .eye-open {
+  display: none;
+}
+
+.btn-icon.showing .eye-closed {
+  display: block;
+}
+
+.mnemonic-help {
+  font-size: 1rem;
+  color: var(--mut);
+  margin: 10px 0 10px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.mnemonic-help a {
+  color: var(--acc);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+#connectCard .input-with-btn + .input-with-btn {
+  margin-top: 10px;
+}
+
+#connectCard > label {
+  text-align: center;
+}

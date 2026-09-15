@@ -226,15 +226,26 @@ async function enterWallet() {
 
 $("btnConnect").onclick = async () => {
 	const m = $("mnemonic").value.trim();
-	const pw = $("pwdNew").value;
+    const pw = $("pwdNew").value;
+    const pwConfirm = $("pwdNewConfirm").value;
 
-	if (!m) {
-		return alert("Informe a frase de recuperacao.");
-	}
+    if (!m) {
+        return alert(
+            "Informe a frase de recuperacao."
+        );
+    }
 
-	if (pw.length < 4) {
-		return alert("A senha precisa de pelo menos 4 caracteres.");
-	}
+    if (pw.length < 4) {
+        return alert(
+            "A senha precisa de pelo menos 4 caracteres."
+        );
+    }
+
+    if (pw !== pwConfirm) {
+        return alert(
+            "As senhas não coincidem. Digite a mesma senha nos dois campos."
+        );
+    }
 
 	const btn = $("btnConnect");
 
@@ -256,7 +267,23 @@ $("btnConnect").onclick = async () => {
 
 		appendLog(lg, "Conectado!");
 
-		$("mnemonic").value = "";
+        $("mnemonic").value = "";
+        $("pwdNew").value = "";
+        $("pwdNewConfirm").value = "";
+        $("pwdNew").type = "password";
+        $("pwdNewConfirm").type = "password";
+
+        const _r1 = $("btnTogglePwdNew");
+        if (_r1) {
+            _r1.classList.remove("showing");
+            _r1.title = "Mostrar senha";
+        }
+
+        const _r2 = $("btnTogglePwdConfirm");
+        if (_r2) {
+            _r2.classList.remove("showing");
+            _r2.title = "Mostrar senha";
+        }
 
 		await enterWallet();
 	} catch (e) {
@@ -1198,6 +1225,31 @@ $("scanFileInput").onchange = async (e) => {
 		e.target.value = "";
 	}
 };
+
+function makeTogglePwd(inputId, btnId) {
+	return () => {
+		const input = $(inputId);
+		const btn = $(btnId);
+
+		if (!input || !btn) return;
+
+		const showing = input.type === "text";
+
+		input.type = showing ? "password" : "text";
+		btn.classList.toggle("showing", !showing);
+		btn.title = showing ? "Mostrar senha" : "Esconder senha";
+	};
+}
+
+const _btnToggle1 = $("btnTogglePwdNew");
+if (_btnToggle1) {
+	_btnToggle1.onclick = makeTogglePwd("pwdNew", "btnTogglePwdNew");
+}
+
+const _btnToggle2 = $("btnTogglePwdConfirm");
+if (_btnToggle2) {
+	_btnToggle2.onclick = makeTogglePwd("pwdNewConfirm", "btnTogglePwdConfirm");
+}
 
 initTabs();
 updateActionMode();

@@ -20,11 +20,43 @@
           <span class="de">De</span><span class="pix">Pix</span></span> · Spark Wallet
       </h1>
       <div class="card" id="connectCard">
+        <div class="mnemonic-help">
+          Não tem uma frase?
+          <a href="https://iancoleman.io/bip39/" target="_blank" rel="noopener noreferrer">
+            Use Iancoleman
+          </a>
+        </div>
         <label for="mnemonic"> Frase de recuperação (12 ou 24 palavras) </label>
         <textarea id="mnemonic" placeholder="palavra1 palavra2 palavra3 ..."></textarea>
         <div class="spacer"></div>
-        <label for="pwdNew"> Crie uma senha para criptografar (AES-256) </label>
-        <input type="password" id="pwdNew" placeholder="mínimo 4 caracteres" autocomplete="new-password">
+        <label for="pwdNew"> Crie uma senha </label>
+          <div class="input-with-btn">
+            <input type="password" id="pwdNew" placeholder="mínimo 4 caracteres" autocomplete="new-password">
+            <button type="button" id="btnTogglePwdNew" class="btn-icon" title="Mostrar senha">
+              <svg class="eye-open" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="input-with-btn">
+            <input type="password" id="pwdNewConfirm" placeholder="repita a senha" autocomplete="new-password">
+            <button type="button" id="btnTogglePwdConfirm" class="btn-icon" title="Mostrar senha">
+              <svg class="eye-open" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
         <button id="btnConnect" class="btn-primary"> Salvar e conectar </button>
         <div class="log" id="connectLog"></div>
       </div>
