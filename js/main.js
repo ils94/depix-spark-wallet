@@ -3,7 +3,9 @@ import { $, appendLog } from "./dom.js";
 
 import {
 	fetchBtcBrl,
+	fetchBtcUsdt,
 	formatBrl,
+	formatUsd,
 	computeSpread
 } from "./binance-service.js";
 
@@ -352,6 +354,95 @@ $("btnRefresh").onclick = async () => {
 	await refreshOnchainDeposits();
 };
 
+function parseBalanceNumber(text) {
+	if (!text) return null;
+
+	const s = String(text).trim();
+	if (!s || s === "—" || s.startsWith("Erro")) return null;
+
+	const cleaned = s
+		.replace(/[^\d,.-]/g, "")
+		.replace(/\./g, "")
+		.replace(",", ".");
+
+	const num = parseFloat(cleaned);
+	return Number.isFinite(num) ? num : null;
+}
+
+async function updateFiatValues() {
+	const btcFiat = $("btcFiat");
+	const depixFiat = $("depixFiat");
+
+	if (!btcFiat || !depixFiat) return;
+
+	const sats = parseBalanceNumber($("btcBal").textContent);
+	const depix = parseBalanceNumber($("depixBal").textContent);
+
+	if (sats == null && depix == null) {
+		btcFiat.textContent = "";
+		depixFiat.textContent = "";
+		return;
+	}
+
+	try {
+		const [btcBrl, btcUsdt] = await Promise.all([
+			fetchBtcBrl(),
+			fetchBtcUsdt()
+		]);
+
+		if (sats != null) {
+            const brl = (sats / 1e8) * btcBrl;
+            const usd = (sats / 1e8) * btcUsdt;
+            btcFiat.innerHTML =
+                `${formatBrl(brl)}<br>${formatUsd(usd)}`;
+        } else {
+            btcFiat.textContent = "";
+        }
+
+		if (depix != null) {
+			const satsValue = (depix / btcBrl) * 1e8;
+			depixFiat.textContent =
+				"≈ " + Math.round(satsValue).toLocaleString("pt-BR") + " sats";
+		} else {
+			depixFiat.textContent = "";
+		}
+	} catch (e) {
+		console.warn("Não foi possível atualizar valores em fiat:", e);
+		btcFiat.textContent = "";
+		depixFiat.textContent = "";
+	}
+}
+
+let fiatUpdateScheduled = false;
+
+function scheduleFiatUpdate() {
+	if (fiatUpdateScheduled) return;
+	fiatUpdateScheduled = true;
+
+	setTimeout(() => {
+		fiatUpdateScheduled = false;
+		updateFiatValues();
+	}, 150);
+}
+
+function watchBalancesForFiat() {
+	const btcEl = $("btcBal");
+	const depixEl = $("depixBal");
+
+	if (!btcEl || !depixEl) return;
+
+	const obs = new MutationObserver(() => scheduleFiatUpdate());
+
+	const opts = {
+		childList: true,
+		characterData: true,
+		subtree: true
+	};
+
+	obs.observe(btcEl, opts);
+	obs.observe(depixEl, opts);
+}
+
 $("btnRefreshTx").onclick = refreshTransfers;
 
 $("btnCopyAddr").onclick = async () => {
@@ -637,13 +728,13 @@ $("btnQuote").onclick = async () => {
 		let binanceInfo = "";
 		try {
 			const btcBrl = await fetchBtcBrl();
-			const { spreadPct, refOut, outUnit } = computeSpread(
-				direction,
-				amt,
-				quote.amountOut
-			);
+            const { spreadPct, refOut, outUnit } = computeSpread(
+                direction,
+                amt,
+                quote.amountOut,
+                btcBrl
+            );
 
-			// Para exibir o "amountOut" da pool em unidade legível
 			const poolOut =
 				direction === "depixToBtc"
 					? quote.amountOut
@@ -1301,3 +1392,4 @@ if (_btnToggle2) {
 initTabs();
 updateActionMode();
 showInitialView();
+watchBalancesForFiat();

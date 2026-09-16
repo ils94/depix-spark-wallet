@@ -414,3 +414,18 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 #connectCard > label {
   text-align: center;
 }
+
+.balrow {
+  flex-wrap: wrap;
+}
+
+.bal-sub {
+  flex-basis: 100%;
+  text-align: right;
+  font-size: .72rem;
+  color: var(--mut);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+  min-height: 1em;
+  line-height: 1.4;
+}
