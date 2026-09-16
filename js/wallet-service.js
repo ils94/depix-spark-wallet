@@ -411,7 +411,6 @@ async function fetchBtcTransfersPage() {
 
 async function fetchDepixTokensPage() {
   if (!readonlyClient) {
-    console.warn("readonlyClient indisponível para token txs");
     return { list: [], nextCursor: null };
   }
 
@@ -420,7 +419,6 @@ async function fetchDepixTokensPage() {
 
     const params = {
       sparkAddresses: [myAddress],
-      tokenIdentifiers: [DEPIX_BECH32],
       pageSize: TX_PAGE_SIZE,
       direction: "NEXT",
     };
