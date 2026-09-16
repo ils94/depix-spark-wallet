@@ -12,6 +12,136 @@ async function ensureSdks() {
 import { DEPIX_HEX, DEPIX_BECH32, state } from "./config.js";
 import { $ } from "./dom.js";
 
+export const txItemsStore = new Map();
+
+let userRequestsCache = null;
+let userRequestsCacheAt = 0;
+const USER_REQUESTS_CACHE_MS = 30 * 1000;
+
+const TYPE_LABELS = {
+  TRANSFER: "Transferência",
+  PREIMAGE_SWAP: "Swap",
+  UTXO_SWAP: "Swap UTXO",
+  COOPERATIVE_EXIT: "Exit",
+  MINT: "Mint",
+  DEPIX: "DePix",
+  LIGHTNING: "Lightning",
+};
+
+function prettifyType(type) {
+  if (!type) return "—";
+  return TYPE_LABELS[type] || type;
+}
+
+function normalizeStatus(status) {
+  if (!status) return "";
+  return String(status)
+    .replace(/^TRANSFER_STATUS_/, "")
+    .toUpperCase();
+}
+
+function statusClass(status) {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("complet") || s.includes("finaliz") || s.includes("succeed")) return "ok";
+  if (s.includes("cancel") || s.includes("fail")) return "err";
+  return "pending";
+}
+
+function formatDateTime(d) {
+  if (!(d instanceof Date)) return "—";
+
+  const date = d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit"
+  });
+
+  const time = d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  return `${date} ${time}`;
+}
+
+function decodeBase64Utf8(b64) {
+  if (!b64 || typeof b64 !== "string") return "";
+
+  try {
+    const bin = atob(b64);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+    const decoded = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    const printable = decoded.replace(/[\x20-\x7E\u00A0-\uFFFF]/g, "");
+
+    if (printable.length > decoded.length / 3) return b64;
+
+    return decoded;
+  } catch {
+    return b64;
+  }
+}
+
+async function loadUserRequestsMap() {
+  const now = Date.now();
+
+  if (userRequestsCache && now - userRequestsCacheAt < USER_REQUESTS_CACHE_MS) {
+    return userRequestsCache;
+  }
+
+  const map = new Map();
+
+  try {
+    let cursor = null;
+    let guard = 0;
+
+    while (guard++ < 20) {
+      const args = { first: 100 };
+      if (cursor) args.after = cursor;
+
+      const res = await state.wallet.getUserRequests(args);
+      const entities = res?.entities || [];
+
+      for (const ent of entities) {
+        const sparkId = ent?.transfer?.sparkId;
+        if (sparkId) map.set(sparkId, ent);
+      }
+
+      if (!res?.pageInfo?.hasNextPage) break;
+      cursor = res.pageInfo.endCursor;
+    }
+  } catch (e) {
+    console.warn("Falha ao carregar user requests:", e);
+  }
+
+  userRequestsCache = map;
+  userRequestsCacheAt = now;
+  return map;
+}
+
+export async function getTransferDetails(txId) {
+  if (!txId) return { found: false };
+
+  const map = await loadUserRequestsMap();
+  const entity = map.get(txId);
+
+  if (entity) {
+    return {
+      found: true,
+      entity,
+      memo: decodeBase64Utf8(entity?.invoice?.memo),
+    };
+  }
+
+  try {
+    const tx = await state.wallet.getTransfer(txId);
+    return { found: true, entity: null, memo: "", transfer: tx };
+  } catch (e) {
+    return { found: false, error: e?.message || String(e) };
+  }
+}
+
 export async function connect(mnemonic) {
   await ensureSdks();
 
@@ -130,20 +260,25 @@ export async function refreshTransfers() {
 
     const items = [];
 
+    txItemsStore.clear();
+
     for (const tx of transfers) {
-      items.push({
+      const itemId = `tx-${txItemsStore.size}`;
+
+      const item = {
+        itemId,
         kind: "btc",
+        sparkId: tx.id,
         direction: tx.transferDirection,
         amount: Number(tx.totalValue),
         type: tx.type || "TRANSFER",
-        status: String(tx.status || "").replace(
-          "TRANSFER_STATUS_",
-          ""
-        ),
-        date: tx.createdTime
-          ? new Date(tx.createdTime)
-          : null,
-      });
+        status: String(tx.status || "").replace("TRANSFER_STATUS_", ""),
+        date: tx.createdTime ? new Date(tx.createdTime) : null,
+        memo: "",
+      };
+
+      items.push(item);
+      txItemsStore.set(itemId, item);
     }
 
     for (const t of tokenTxs) {
@@ -163,10 +298,7 @@ export async function refreshTransfers() {
 
       let direction = "OUTGOING";
 
-      if (
-        inputCase === "mintInput" ||
-        inputCase === "createInput"
-      ) {
+      if (inputCase === "mintInput" || inputCase === "createInput") {
         direction = "INCOMING";
       } else if (outputs.length > 0) {
         direction = "INCOMING";
@@ -178,28 +310,30 @@ export async function refreshTransfers() {
         ? new Date(tx.expiryTime)
         : null;
 
-      items.push({
+      const itemId = `tx-${txItemsStore.size}`;
+
+      const item = {
+        itemId,
         kind: "depix",
+        sparkId: null,
         direction,
         amount,
-        type:
-          inputCase === "mintInput"
-            ? "MINT"
-            : "DEPIX",
+        type: inputCase === "mintInput" ? "MINT" : "DEPIX",
         status,
         date,
-      });
+        memo: "",
+      };
+
+      items.push(item);
+      txItemsStore.set(itemId, item);
     }
 
     items.sort(
-      (a, b) =>
-        (b.date?.getTime() || 0) -
-        (a.date?.getTime() || 0)
+      (a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
     );
 
     if (!items.length) {
-      el.innerHTML =
-        "<div class='tx-meta'>Nenhuma transação encontrada.</div>";
+      el.innerHTML = "<div class='tx-meta'>Nenhuma transação encontrada.</div>";
       return;
     }
 
@@ -207,32 +341,43 @@ export async function refreshTransfers() {
       .map((item) => {
         const isDepix = item.kind === "depix";
         const isIn = item.direction === "INCOMING";
-        const dirClass = isIn
-          ? "tx-dir-in"
-          : "tx-dir-out";
+        const dirClass = isIn ? "tx-dir-in" : "tx-dir-out";
+        const arrow = isIn ? "↓" : "↑";
+        const sign = isIn ? "+" : "−";
 
         const amountStr = isDepix
-          ? `${isIn ? "+" : "−"}${item.amount.toLocaleString(
-              "pt-BR",
-              {
-                maximumFractionDigits: 8,
-              }
-            )} DePix`
-          : `${isIn ? "+" : "−"}${item.amount.toLocaleString(
-              "pt-BR"
-            )} sats`;
+          ? `${item.amount.toLocaleString("pt-BR", {
+              maximumFractionDigits: 8,
+            })} DePix`
+          : `${item.amount.toLocaleString("pt-BR")} sats`;
 
-        const dateStr = item.date
-          ? item.date.toLocaleString("pt-BR")
-          : "—";
+        const dateStr = formatDateTime(item.date);
+        const typeLabel = prettifyType(item.type);
+        const statusNorm = normalizeStatus(item.status);
+        const statusCls = statusClass(statusNorm);
 
         return `
         <div class="tx-item">
-          <div>
-            <div class="${dirClass}">${amountStr}</div>
-            <div class="tx-meta">${item.type} · ${dateStr}</div>
+          <div class="tx-row-top">
+            <div class="tx-amount ${dirClass}">
+              <span class="arrow">${arrow}</span>
+              <span>${sign}${amountStr}</span>
+            </div>
+            <div class="tx-date">${dateStr}</div>
           </div>
-          <div class="tx-meta">${item.status || ""}</div>
+          <div class="tx-row-bottom">
+            <div class="tx-tags">
+              <span class="tx-tag type">${typeLabel}</span>
+              ${
+                statusNorm
+                  ? `<span class="tx-tag status ${statusCls}">${statusNorm}</span>`
+                  : ""
+              }
+            </div>
+            <button class="tx-detail-btn" data-item-id="${item.itemId}">
+              Detalhes
+            </button>
+          </div>
         </div>
         `;
       })
@@ -240,8 +385,7 @@ export async function refreshTransfers() {
   } catch (e) {
     console.error(e);
 
-    el.innerHTML =
-      `<div class="tx-meta">Erro: ${e.message || e}</div>`;
+    el.innerHTML = `<div class="tx-meta">Erro: ${e.message || e}</div>`;
   }
 }
 

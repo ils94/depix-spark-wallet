@@ -23,7 +23,9 @@ import {
 	getExitFeeQuote,
 	executeExit,
 	payLightning,
-	createSparkInvoice
+	createSparkInvoice,
+	getTransferDetails,
+	txItemsStore
 } from "./wallet-service.js";
 
 import { simulate, execute } from "./swap-service.js";
@@ -1387,6 +1389,140 @@ if (_btnToggle1) {
 const _btnToggle2 = $("btnTogglePwdConfirm");
 if (_btnToggle2) {
 	_btnToggle2.onclick = makeTogglePwd("pwdNewConfirm", "btnTogglePwdConfirm");
+}
+
+function fmtDePix(n) {
+  return Number(n).toLocaleString("pt-BR", {
+    maximumFractionDigits: 8
+  }) + " DePix";
+}
+
+function fmtDate(d) {
+  return d instanceof Date ? d.toLocaleString("pt-BR") : "—";
+}
+
+function escHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  }[c]));
+}
+
+async function openTxDetailModal(item) {
+  const modal = $("txDetailModal");
+  const info = $("txDetailInfo");
+
+  if (!modal || !info || !item) return;
+
+  modal.classList.remove("hidden");
+  info.innerHTML = "<div class='tx-meta'>Carregando…</div>";
+
+  let details = null;
+
+  if (item.kind === "btc" && item.sparkId) {
+    try {
+      details = await getTransferDetails(item.sparkId);
+    } catch (e) {
+      console.warn("getTransferDetails falhou:", e);
+    }
+  }
+
+  const rows = [];
+
+  rows.push(
+    `<div class="row-item"><span class="k">Tipo</span><span class="v">${escHtml(item.type)}</span></div>`
+  );
+
+  rows.push(
+    `<div class="row-item"><span class="k">Direção</span><span class="v">${
+      item.direction === "INCOMING" ? "Recebimento" :
+      item.direction === "OUTGOING" ? "Envio" : "—"
+    }</span></div>`
+  );
+
+  rows.push(
+    `<div class="row-item"><span class="k">Valor</span><span class="v">${
+      item.kind === "depix" ? fmtDePix(item.amount) : fmtSats(item.amount)
+    }</span></div>`
+  );
+
+  rows.push(
+    `<div class="row-item"><span class="k">Data</span><span class="v">${fmtDate(item.date)}</span></div>`
+  );
+
+  if (item.status) {
+    rows.push(
+      `<div class="row-item"><span class="k">Status</span><span class="v">${escHtml(item.status)}</span></div>`
+    );
+  }
+
+  if (item.sparkId) {
+    rows.push(
+      `<div class="row-item"><span class="k">ID</span><span class="v">${escHtml(item.sparkId)}</span></div>`
+    );
+  }
+
+  const invoice = details?.entity?.invoice;
+
+  if (invoice?.paymentHash) {
+    rows.push(
+      `<div class="row-item"><span class="k">Payment hash</span><span class="v">${escHtml(invoice.paymentHash)}</span></div>`
+    );
+  }
+
+  if (invoice?.expiresAt) {
+    rows.push(
+      `<div class="row-item"><span class="k">Expira em</span><span class="v">${new Date(invoice.expiresAt).toLocaleString("pt-BR")}</span></div>`
+    );
+  }
+
+  const memo = details?.memo || "";
+
+  if (memo) {
+    rows.push(
+      `<div class="row-item memo"><span class="k">Memo</span><span class="v">${escHtml(memo)}</span></div>`
+    );
+  } else if (item.kind === "btc") {
+    rows.push(
+      `<div class="row-item"><span class="k">Memo</span><span class="v">—</span></div>`
+    );
+  } else {
+    rows.push(
+      `<div class="row-item"><span class="k">Memo</span><span class="v">não disponível para tokens DePix</span></div>`
+    );
+  }
+
+  info.innerHTML = rows.join("");
+}
+
+function closeTxDetailModal() {
+  $("txDetailModal").classList.add("hidden");
+}
+
+const _txDetailClose = $("txDetailModalClose");
+if (_txDetailClose) _txDetailClose.onclick = closeTxDetailModal;
+
+const _txDetailModal = $("txDetailModal");
+if (_txDetailModal) {
+  _txDetailModal.onclick = (e) => {
+    if (e.target === _txDetailModal) closeTxDetailModal();
+  };
+}
+
+const _txList = $("txList");
+if (_txList) {
+  _txList.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tx-detail-btn");
+    if (!btn) return;
+
+    const itemId = btn.dataset.itemId;
+    const item = txItemsStore.get(itemId);
+
+    if (item) openTxDetailModal(item);
+  });
 }
 
 initTabs();

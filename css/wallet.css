@@ -1,50 +1,55 @@
-.warn {
-  background: #241a08;
-  border: 1px solid #5a3c10;
-  color: #f5c26b;
-  font-size: .78rem;
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 16px;
-}
-
 .balrow {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  flex-wrap: wrap;
   padding: 10px 0;
   border-bottom: 1px dashed var(--line);
 }
+
 .balrow:last-child { border-bottom: none; }
 
 .balrow .lbl { color: var(--mut); font-size: .9rem; }
-.balrow .val { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.balrow .val {
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 .val-btc { color: var(--acc); }
 .val-dpx { color: var(--dep); }
 
-.quote {
-  background: #0d1319;
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-  padding: 12px;
-  margin-top: 12px;
-  font-size: .9rem;
+.bal-sub {
+  flex-basis: 100%;
+  text-align: right;
+  font-size: .72rem;
   color: var(--mut);
-  display: none;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+  min-height: 1em;
+  line-height: 1.4;
 }
-.quote.show { display: block; }
-.quote b { color: var(--txt); }
 
-.log {
-  font-family: ui-monospace, monospace;
-  font-size: .75rem;
+.mnemonic-help {
+  font-size: 1rem;
   color: var(--mut);
-  margin-top: 12px;
-  max-height: 120px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
+  margin: 10px 0 10px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.mnemonic-help a {
+  color: var(--acc);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+#connectCard .input-with-btn + .input-with-btn {
+  margin-top: 10px;
+}
+
+#connectCard > label {
+  text-align: center;
 }
 
 .addr-box {
@@ -54,6 +59,14 @@
   border-radius: 12px;
   padding: 12px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.addr-box .btn-copy,
+.addr-box .btn-secondary {
+  margin-top: 0;
 }
 
 .addr-label {
@@ -80,29 +93,264 @@
   color: #06281c;
 }
 
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab-btn {
+  position: relative;
+  flex: 1;
+  background: transparent;
+  color: var(--mut);
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 6px;
+  margin-top: 0;
+  font-size: .88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+
+.tab-btn:hover { color: var(--txt); }
+
+.tab-btn.active {
+  color: var(--acc);
+  border-bottom-color: var(--acc);
+}
+
+.tab-btn .badge {
+  display: inline-block;
+  background: var(--dep);
+  color: #06281c;
+  font-size: .7rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 5px;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+.tab-btn .badge.hidden { display: none; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+#noClaimsCard { text-align: center; }
+#noClaimsCard.hidden { display: none; }
+
+#tabPanelClaims > #btnCheckClaims {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
 .tx-list {
   margin-top: 12px;
-  max-height: 280px;
+  max-height: 380px;
   overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .tx-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 4px;
   border-bottom: 1px dashed var(--line);
-  font-size: .85rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .tx-item:last-child { border-bottom: none; }
 
-.tx-dir-in  { color: var(--dep); }
-.tx-dir-out { color: #ff6b81; }
+.tx-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tx-amount {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tx-amount .arrow {
+  font-size: .85rem;
+  opacity: .8;
+}
+
+.tx-amount.tx-dir-in  { color: var(--dep); }
+.tx-amount.tx-dir-out { color: #ff6b81; }
+
+.tx-date {
+  font-size: .72rem;
+  color: var(--mut);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-row-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.tx-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.tx-tag {
+  display: inline-block;
+  font-size: .62rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--mut);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  white-space: nowrap;
+}
+
+.tx-tag.type { color: var(--txt); }
+
+.tx-tag.status.ok {
+  background: rgba(0, 180, 124, 0.12);
+  color: var(--dep);
+}
+
+.tx-tag.status.pending {
+  background: rgba(247, 147, 26, 0.12);
+  color: var(--acc);
+}
+
+.tx-tag.status.err {
+  background: rgba(255, 107, 129, 0.12);
+  color: #ff6b81;
+}
+
+.tx-detail-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--mut);
+  font-size: .68rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: auto;
+  margin: 0;
+  transition: color .15s ease, border-color .15s ease;
+}
+
+.tx-detail-btn:hover {
+  color: var(--acc);
+  border-color: var(--acc);
+}
 
 .tx-meta {
   color: var(--mut);
   font-size: .75rem;
+}
+
+.tx-list::-webkit-scrollbar { width: 6px; }
+.tx-list::-webkit-scrollbar-thumb {
+  background: #394653;
+  border-radius: 6px;
+}
+
+.tx-detail-modal-content {
+  max-width: 420px;
+  align-items: stretch;
+}
+
+.tx-detail-info {
+  background: #0d1319;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: .82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.tx-detail-info .row-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.tx-detail-info .row-item .k {
+  color: var(--mut);
+  flex-shrink: 0;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding-top: 2px;
+}
+
+.tx-detail-info .row-item .v {
+  color: var(--txt);
+  font-family: ui-monospace, monospace;
+  font-size: .78rem;
+  text-align: right;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  max-width: 65%;
+}
+
+.tx-detail-info .row-item.memo {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.tx-detail-info .row-item.memo .v {
+  font-family: inherit;
+  font-size: .85rem;
+  text-align: left;
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 2px solid var(--line);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 6px;
 }
 
 .onchain-deposit {
@@ -151,9 +399,7 @@
   color: var(--mut);
 }
 
-.onchain-deposit-row strong {
-  color: var(--txt);
-}
+.onchain-deposit-row strong { color: var(--txt); }
 
 .onchain-deposit-tx {
   display: block;
@@ -203,82 +449,115 @@
   max-width: 100%;
 }
 
-.onchain-deposit-tx::-webkit-scrollbar {
-  height: 6px;
-}
-
+.onchain-deposit-tx::-webkit-scrollbar { height: 6px; }
 .onchain-deposit-tx::-webkit-scrollbar-thumb {
   background: #394653;
   border-radius: 6px;
 }
 
-.tab-bar {
+.invoice-box {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
   display: flex;
-  gap: 4px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--line);
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
-.tab-btn {
-  position: relative;
-  flex: 1;
-  background: transparent;
-  color: var(--mut);
-  border: none;
-  border-radius: 0;
-  border-bottom: 2px solid transparent;
-  padding: 10px 6px;
-  margin-top: 0;
-  font-size: .88rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .15s ease;
-  white-space: nowrap;
+.invoice-box > label,
+.invoice-box > textarea,
+.invoice-box > .row {
+  width: 100%;
 }
 
-.tab-btn:hover {
-  color: var(--txt);
+.invoice-box > .qr-wrap { width: auto; }
+
+#invoiceString {
+  width: 100%;
+  font-size: 11px;
+  word-break: break-all;
+  resize: vertical;
 }
 
-.tab-btn.active {
-  color: var(--acc);
-  border-bottom-color: var(--acc);
+.lnbc-modal-content {
+  max-width: 380px;
+  align-items: stretch;
 }
 
-.tab-btn .badge {
-  display: inline-block;
-  background: var(--dep);
-  color: #06281c;
-  font-size: .7rem;
-  font-weight: 700;
-  padding: 1px 6px;
+.lnbc-info {
+  background: #0d1319;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  margin-left: 5px;
-  vertical-align: middle;
-  line-height: 1;
+  padding: 12px 14px;
+  font-size: .82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
-.tab-btn .badge.hidden {
-  display: none;
+.lnbc-info .row-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
 }
 
-.tab-panel {
-  display: none;
+.lnbc-info .row-item .k {
+  color: var(--mut);
+  flex-shrink: 0;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding-top: 2px;
 }
 
-.tab-panel.active {
-  display: block;
+.lnbc-info .row-item .v {
+  color: var(--txt);
+  font-family: ui-monospace, monospace;
+  font-size: .78rem;
+  text-align: right;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  max-width: 65%;
 }
 
-#noClaimsCard {
-  text-align: center;
+.lnbc-info .row-item.amount .v {
+  color: var(--acc);
+  font-weight: 700;
+  font-size: 1rem;
 }
 
-#noClaimsCard.hidden {
-  display: none;
+.lnbc-confirm-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: .82rem;
+  color: var(--mut);
+  cursor: pointer;
+  margin: 0;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-#tabPanelClaims > #btnCheckClaims {
+.lnbc-confirm-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--acc);
+  cursor: pointer;
+}
+
+.lnbc-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.lnbc-actions button {
+  flex: 1;
   margin-top: 0;
-  margin-bottom: 16px;
 }
