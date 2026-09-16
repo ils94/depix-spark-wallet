@@ -83,6 +83,28 @@ function decodeBase64Utf8(b64) {
   }
 }
 
+function bytesToHex(bytes) {
+  if (!bytes) return "";
+
+  if (typeof bytes === "string") {
+    return bytes.toLowerCase();
+  }
+
+  const arr = bytes instanceof Uint8Array
+    ? Array.from(bytes)
+    : Object.values(bytes).map(Number);
+
+  return arr
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .toLowerCase();
+}
+
+function sameKey(a, b) {
+  if (!a || !b) return false;
+  return bytesToHex(a) === bytesToHex(b);
+}
+
 async function loadUserRequestsMap() {
   const now = Date.now();
 
@@ -229,6 +251,14 @@ export async function refreshTransfers() {
       console.warn("Falha ao buscar token txs:", e);
     }
 
+    let myKeyHex = "";
+
+    try {
+      myKeyHex = await state.wallet.getIdentityPublicKey();
+    } catch (e) {
+      console.warn("Não foi possível obter identity public key:", e);
+    }
+
     const STATUS_MAP = {
       0: "STARTED",
       1: "SIGNED",
@@ -288,21 +318,34 @@ export async function refreshTransfers() {
       const outputs = tx.tokenOutputs || [];
       const inputCase = tx.tokenInputs?.$case || "";
 
-      let amountRaw = 0;
+      let ourRaw = 0;
+      let otherRaw = 0;
 
       for (const out of outputs) {
-        amountRaw += toAmount(out.tokenAmount);
+        const amt = toAmount(out.tokenAmount);
+        const isOurs = myKeyHex && sameKey(out.ownerPublicKey, myKeyHex);
+
+        if (isOurs) ourRaw += amt;
+        else otherRaw += amt;
+      }
+
+      const isMint = inputCase === "mintInput" || inputCase === "createInput";
+
+      let direction;
+      let amountRaw;
+
+      if (isMint || ourRaw > 0) {
+        direction = "INCOMING";
+        amountRaw = ourRaw;
+      } else if (otherRaw > 0) {
+        direction = "OUTGOING";
+        amountRaw = otherRaw;
+      } else {
+        direction = "OUTGOING";
+        amountRaw = 0;
       }
 
       const amount = amountRaw / 1e8;
-
-      let direction = "OUTGOING";
-
-      if (inputCase === "mintInput" || inputCase === "createInput") {
-        direction = "INCOMING";
-      } else if (outputs.length > 0) {
-        direction = "INCOMING";
-      }
 
       const date = tx.clientCreatedTimestamp
         ? new Date(tx.clientCreatedTimestamp)
