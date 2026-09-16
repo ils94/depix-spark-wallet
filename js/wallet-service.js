@@ -2,10 +2,11 @@ import { loadModule } from "./sdk-loader.js";
 
 let SparkWallet = null;
 let FlashnetClient = null;
+let SparkReadonlyClient = null;
 
 async function ensureSdks() {
-  if (SparkWallet && FlashnetClient) return;
-  ({ SparkWallet } = await loadModule("spark-sdk"));
+  if (SparkWallet && FlashnetClient && SparkReadonlyClient) return;
+  ({ SparkWallet, SparkReadonlyClient } = await loadModule("spark-sdk"));
   ({ FlashnetClient } = await loadModule("flashnet-sdk"));
 }
 
@@ -19,6 +20,7 @@ let userRequestsCacheAt = 0;
 const USER_REQUESTS_CACHE_MS = 30 * 1000;
 
 let cachedIdentityKeyHex = null;
+let readonlyClient = null;
 
 const TX_INITIAL_SHOW = 10;
 const TX_LOAD_MORE_STEP = 10;
@@ -63,7 +65,7 @@ function normalizeStatus(status) {
 function statusClass(status) {
   const s = String(status || "").toLowerCase();
   if (s.includes("complet") || s.includes("finaliz") || s.includes("succeed")) return "ok";
-  if (s.includes("cancel") || s.includes("fail")) return "err";
+  if (s.includes("cancel") || s.includes("fail") || s.includes("expir")) return "err";
   return "pending";
 }
 
@@ -221,6 +223,79 @@ const STATUS_MAP = {
   4: "REVEALED",
 };
 
+const BTC_TYPE_MAP = {
+  0: "TRANSFER",
+  1: "PREIMAGE_SWAP",
+  2: "UTXO_SWAP",
+  3: "COOPERATIVE_EXIT",
+  4: "LIGHTNING",
+};
+
+const BTC_STATUS_MAP = {
+  0: "PENDING",
+  1: "SIGNED",
+  2: "COMPLETED",
+  3: "EXPIRED",
+  4: "CANCELLED",
+  5: "COMPLETED",
+};
+
+function normalizeTokenStatus(rawStatus) {
+  if (rawStatus == null) return "";
+
+  if (typeof rawStatus === "number") {
+    return STATUS_MAP[rawStatus] || `DESCONHECIDO(${rawStatus})`;
+  }
+
+  const s = String(rawStatus).trim();
+
+  if (STATUS_MAP[s] !== undefined) return STATUS_MAP[s];
+
+  const stripped = s
+    .replace(/^TOKEN_TRANSACTION_STATUS_/, "")
+    .replace(/^TOKEN_TRANSACTION_/, "")
+    .toUpperCase();
+
+  for (const key in STATUS_MAP) {
+    if (STATUS_MAP[key] === stripped) return stripped;
+  }
+
+  return stripped || `DESCONHECIDO(${s})`;
+}
+
+function normalizeBtcType(rawType) {
+  if (rawType == null) return "TRANSFER";
+
+  if (typeof rawType === "number") {
+    return BTC_TYPE_MAP[rawType] || `TYPE_${rawType}`;
+  }
+
+  const s = String(rawType).trim();
+
+  if (BTC_TYPE_MAP[s] !== undefined) return BTC_TYPE_MAP[s];
+
+  return (
+    s
+      .replace(/^TRANSFER_TYPE_/, "")
+      .replace(/^TRANSFER_/, "")
+      .toUpperCase() || "TRANSFER"
+  );
+}
+
+function normalizeBtcStatus(rawStatus) {
+  if (rawStatus == null) return "";
+
+  if (typeof rawStatus === "number") {
+    return BTC_STATUS_MAP[rawStatus] || `STATUS_${rawStatus}`;
+  }
+
+  const s = String(rawStatus).trim();
+
+  if (BTC_STATUS_MAP[s] !== undefined) return BTC_STATUS_MAP[s];
+
+  return s.replace(/^TRANSFER_STATUS_/, "").toUpperCase();
+}
+
 function buildBtcItems(transfers) {
   return transfers.map((tx) => {
     const itemId = `btc:${tx.id}`;
@@ -231,8 +306,8 @@ function buildBtcItems(transfers) {
       sparkId: tx.id,
       direction: tx.transferDirection,
       amount: Number(tx.totalValue),
-      type: tx.type || "TRANSFER",
-      status: String(tx.status || "").replace("TRANSFER_STATUS_", ""),
+      type: normalizeBtcType(tx.type),
+      status: normalizeBtcStatus(tx.status),
       date: tx.createdTime ? new Date(tx.createdTime) : null,
       memo: "",
     };
@@ -241,8 +316,8 @@ function buildBtcItems(transfers) {
 
 function buildDepixItems(tokenTxs, myKeyHex) {
   return tokenTxs.map((t) => {
-    const tx = t.tokenTransaction || {};
-    const status = STATUS_MAP[t.status] ?? String(t.status ?? "");
+    const tx = t.tokenTransaction || t;
+    const status = normalizeTokenStatus(t.status);
 
     const outputs = tx.tokenOutputs || [];
     const inputCase = tx.tokenInputs?.$case || "";
@@ -258,7 +333,10 @@ function buildDepixItems(tokenTxs, myKeyHex) {
       else otherRaw += amt;
     }
 
-    const isMint = inputCase === "mintInput" || inputCase === "createInput";
+    const isMint =
+      inputCase === "mintInput" ||
+      inputCase === "createInput" ||
+      inputCase === "mint";
 
     let direction;
     let amountRaw;
@@ -282,7 +360,7 @@ function buildDepixItems(tokenTxs, myKeyHex) {
       ? new Date(tx.expiryTime)
       : null;
 
-    const hashHex = bytesToHex(t.tokenTransactionHash);
+    const hashHex = bytesToHex(t.tokenTransactionHash || tx.hash || tx.id);
 
     const itemId = hashHex
       ? `depix:${hashHex}`
@@ -294,7 +372,7 @@ function buildDepixItems(tokenTxs, myKeyHex) {
       sparkId: null,
       direction,
       amount,
-      type: inputCase === "mintInput" ? "MINT" : "DEPIX",
+      type: isMint ? "MINT" : "DEPIX",
       status,
       date,
       memo: "",
@@ -302,63 +380,93 @@ function buildDepixItems(tokenTxs, myKeyHex) {
   });
 }
 
+async function fetchBtcTransfersPage() {
+  const limit = TX_PAGE_SIZE;
+  const offset = txState.btcOffset;
+
+  if (readonlyClient && typeof readonlyClient.getTransfers === "function") {
+    try {
+      const myAddress = await state.wallet.getSparkAddress();
+
+      const res = await readonlyClient.getTransfers({
+        sparkAddress: myAddress,
+        limit,
+        offset,
+      });
+
+      return res?.transfers || [];
+    } catch (e) {
+      console.warn("readonly.getTransfers falhou, usando wallet:", e);
+    }
+  }
+
+  try {
+    const res = await state.wallet.getTransfers(limit, offset);
+    return res?.transfers || [];
+  } catch (e) {
+    console.warn("wallet.getTransfers falhou:", e);
+    return [];
+  }
+}
+
+async function fetchDepixTokensPage() {
+  if (!readonlyClient) {
+    console.warn("readonlyClient indisponível para token txs");
+    return { list: [], nextCursor: null };
+  }
+
+  try {
+    const myAddress = await state.wallet.getSparkAddress();
+
+    const params = {
+      sparkAddresses: [myAddress],
+      tokenIdentifiers: [DEPIX_BECH32],
+      pageSize: TX_PAGE_SIZE,
+      direction: "NEXT",
+    };
+
+    if (txState.tokenCursor) params.cursor = txState.tokenCursor;
+
+    const result = await readonlyClient.getTokenTransactions(params);
+
+    const list =
+      result?.transactions ||
+      result?.tokenTransactionsWithStatus ||
+      result?.tokenTransactions ||
+      [];
+
+    const nextCursor = result?.pageResponse?.nextCursor || null;
+
+    return { list, nextCursor };
+  } catch (e) {
+    console.warn("readonly.getTokenTransactions falhou:", e);
+    return { list: [], nextCursor: null };
+  }
+}
+
 async function fetchTransfersBatch() {
   const btcPromise = (async () => {
     if (!txState.btcHasMore) return [];
 
-    try {
-      const res = await state.wallet.getTransfers(
-        TX_PAGE_SIZE,
-        txState.btcOffset
-      );
+    const list = await fetchBtcTransfersPage();
 
-      const list = res?.transfers || [];
+    if (list.length < TX_PAGE_SIZE) txState.btcHasMore = false;
 
-      if (list.length < TX_PAGE_SIZE) txState.btcHasMore = false;
+    txState.btcOffset += list.length;
 
-      txState.btcOffset += list.length;
-
-      return list;
-    } catch (e) {
-      console.warn("Falha ao buscar transfers BTC:", e);
-      txState.btcHasMore = false;
-      return [];
-    }
+    return list;
   })();
 
   const tokenPromise = (async () => {
     if (!txState.tokenHasMore) return [];
 
-    try {
-      const myAddress = await state.wallet.getSparkAddress();
+    const { list, nextCursor } = await fetchDepixTokensPage();
 
-      const params = {
-        tokenIdentifiers: [DEPIX_BECH32],
-        sparkAddresses: [myAddress],
-        pageSize: TX_PAGE_SIZE,
-        direction: "NEXT",
-      };
+    txState.tokenCursor = nextCursor;
 
-      if (txState.tokenCursor) params.cursor = txState.tokenCursor;
+    if (!nextCursor) txState.tokenHasMore = false;
 
-      const result =
-        await state.wallet.queryTokenTransactionsWithFilters(params);
-
-      const list =
-        result?.tokenTransactionsWithStatus ||
-        result?.tokenTransactions ||
-        [];
-
-      txState.tokenCursor = result?.pageResponse?.nextCursor || null;
-
-      if (!txState.tokenCursor) txState.tokenHasMore = false;
-
-      return list;
-    } catch (e) {
-      console.warn("Falha ao buscar token txs:", e);
-      txState.tokenHasMore = false;
-      return [];
-    }
+    return list;
   })();
 
   const [btcList, tokenList] = await Promise.all([btcPromise, tokenPromise]);
@@ -489,6 +597,16 @@ export async function connect(mnemonic) {
 
   const client = new FlashnetClient(wallet);
   await client.initialize();
+
+  try {
+    readonlyClient = await SparkReadonlyClient.createWithMasterKey(
+      { network: "MAINNET" },
+      mnemonic
+    );
+  } catch (e) {
+    console.warn("Falha ao criar SparkReadonlyClient:", e);
+    readonlyClient = null;
+  }
 
   state.wallet = wallet;
   state.client = client;
