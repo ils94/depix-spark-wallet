@@ -18,6 +18,26 @@ let userRequestsCache = null;
 let userRequestsCacheAt = 0;
 const USER_REQUESTS_CACHE_MS = 30 * 1000;
 
+let cachedIdentityKeyHex = null;
+
+const TX_INITIAL_SHOW = 10;
+const TX_LOAD_MORE_STEP = 10;
+const TX_PAGE_SIZE = 30;
+
+let txState = null;
+
+function resetTxState() {
+  txState = {
+    allItems: [],
+    renderedCount: 0,
+    btcOffset: 0,
+    btcHasMore: true,
+    tokenCursor: null,
+    tokenHasMore: true,
+    loading: false,
+  };
+}
+
 const TYPE_LABELS = {
   TRANSFER: "Transferência",
   PREIMAGE_SWAP: "Swap",
@@ -105,6 +125,35 @@ function sameKey(a, b) {
   return bytesToHex(a) === bytesToHex(b);
 }
 
+function uint8ToNumber(bytes) {
+  if (!bytes || !(bytes instanceof Uint8Array)) return 0;
+
+  let value = 0n;
+  for (const byte of bytes) {
+    value = (value << 8n) | BigInt(byte);
+  }
+  return Number(value);
+}
+
+function toAmount(val) {
+  if (val == null) return 0;
+  if (val instanceof Uint8Array) return uint8ToNumber(val);
+  if (typeof val === "bigint") return Number(val);
+  if (typeof val === "number") return val;
+  if (typeof val === "string") return Number(val) || 0;
+  return 0;
+}
+
+async function getMyIdentityKey() {
+  if (cachedIdentityKeyHex) return cachedIdentityKeyHex;
+  try {
+    cachedIdentityKeyHex = await state.wallet.getIdentityPublicKey();
+  } catch (e) {
+    console.warn("Não foi possível obter identity key:", e);
+  }
+  return cachedIdentityKeyHex;
+}
+
 async function loadUserRequestsMap() {
   const now = Date.now();
 
@@ -164,6 +213,272 @@ export async function getTransferDetails(txId) {
   }
 }
 
+const STATUS_MAP = {
+  0: "STARTED",
+  1: "SIGNED",
+  2: "FINALIZED",
+  3: "CANCELLED",
+  4: "REVEALED",
+};
+
+function buildBtcItems(transfers) {
+  return transfers.map((tx) => {
+    const itemId = `btc:${tx.id}`;
+
+    return {
+      itemId,
+      kind: "btc",
+      sparkId: tx.id,
+      direction: tx.transferDirection,
+      amount: Number(tx.totalValue),
+      type: tx.type || "TRANSFER",
+      status: String(tx.status || "").replace("TRANSFER_STATUS_", ""),
+      date: tx.createdTime ? new Date(tx.createdTime) : null,
+      memo: "",
+    };
+  });
+}
+
+function buildDepixItems(tokenTxs, myKeyHex) {
+  return tokenTxs.map((t) => {
+    const tx = t.tokenTransaction || {};
+    const status = STATUS_MAP[t.status] ?? String(t.status ?? "");
+
+    const outputs = tx.tokenOutputs || [];
+    const inputCase = tx.tokenInputs?.$case || "";
+
+    let ourRaw = 0;
+    let otherRaw = 0;
+
+    for (const out of outputs) {
+      const amt = toAmount(out.tokenAmount);
+      const isOurs = myKeyHex && sameKey(out.ownerPublicKey, myKeyHex);
+
+      if (isOurs) ourRaw += amt;
+      else otherRaw += amt;
+    }
+
+    const isMint = inputCase === "mintInput" || inputCase === "createInput";
+
+    let direction;
+    let amountRaw;
+
+    if (isMint || ourRaw > 0) {
+      direction = "INCOMING";
+      amountRaw = ourRaw;
+    } else if (otherRaw > 0) {
+      direction = "OUTGOING";
+      amountRaw = otherRaw;
+    } else {
+      direction = "OUTGOING";
+      amountRaw = 0;
+    }
+
+    const amount = amountRaw / 1e8;
+
+    const date = tx.clientCreatedTimestamp
+      ? new Date(tx.clientCreatedTimestamp)
+      : tx.expiryTime
+      ? new Date(tx.expiryTime)
+      : null;
+
+    const hashHex = bytesToHex(t.tokenTransactionHash);
+
+    const itemId = hashHex
+      ? `depix:${hashHex}`
+      : `depix:${date?.getTime() || 0}:${amount}`;
+
+    return {
+      itemId,
+      kind: "depix",
+      sparkId: null,
+      direction,
+      amount,
+      type: inputCase === "mintInput" ? "MINT" : "DEPIX",
+      status,
+      date,
+      memo: "",
+    };
+  });
+}
+
+async function fetchTransfersBatch() {
+  const btcPromise = (async () => {
+    if (!txState.btcHasMore) return [];
+
+    try {
+      const res = await state.wallet.getTransfers(
+        TX_PAGE_SIZE,
+        txState.btcOffset
+      );
+
+      const list = res?.transfers || [];
+
+      if (list.length < TX_PAGE_SIZE) txState.btcHasMore = false;
+
+      txState.btcOffset += list.length;
+
+      return list;
+    } catch (e) {
+      console.warn("Falha ao buscar transfers BTC:", e);
+      txState.btcHasMore = false;
+      return [];
+    }
+  })();
+
+  const tokenPromise = (async () => {
+    if (!txState.tokenHasMore) return [];
+
+    try {
+      const myAddress = await state.wallet.getSparkAddress();
+
+      const params = {
+        tokenIdentifiers: [DEPIX_BECH32],
+        sparkAddresses: [myAddress],
+        pageSize: TX_PAGE_SIZE,
+        direction: "NEXT",
+      };
+
+      if (txState.tokenCursor) params.cursor = txState.tokenCursor;
+
+      const result =
+        await state.wallet.queryTokenTransactionsWithFilters(params);
+
+      const list =
+        result?.tokenTransactionsWithStatus ||
+        result?.tokenTransactions ||
+        [];
+
+      txState.tokenCursor = result?.pageResponse?.nextCursor || null;
+
+      if (!txState.tokenCursor) txState.tokenHasMore = false;
+
+      return list;
+    } catch (e) {
+      console.warn("Falha ao buscar token txs:", e);
+      txState.tokenHasMore = false;
+      return [];
+    }
+  })();
+
+  const [btcList, tokenList] = await Promise.all([btcPromise, tokenPromise]);
+
+  return { btcList, tokenList };
+}
+
+function mergeItemsIntoBuffer(newItems) {
+  const seen = new Set(txState.allItems.map((it) => it.itemId));
+
+  for (const item of newItems) {
+    if (seen.has(item.itemId)) continue;
+    seen.add(item.itemId);
+    txState.allItems.push(item);
+  }
+
+  txState.allItems.sort(
+    (a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
+  );
+
+  txItemsStore.clear();
+  for (const item of txState.allItems) {
+    txItemsStore.set(item.itemId, item);
+  }
+}
+
+function renderTxItem(item) {
+  const isDepix = item.kind === "depix";
+  const isIn = item.direction === "INCOMING";
+  const dirClass = isIn ? "tx-dir-in" : "tx-dir-out";
+  const arrow = isIn ? "↓" : "↑";
+  const sign = isIn ? "+" : "−";
+
+  const amountStr = isDepix
+    ? `${item.amount.toLocaleString("pt-BR", {
+        maximumFractionDigits: 8,
+      })} DePix`
+    : `${item.amount.toLocaleString("pt-BR")} sats`;
+
+  const dateStr = formatDateTime(item.date);
+  const typeLabel = prettifyType(item.type);
+  const statusNorm = normalizeStatus(item.status);
+  const statusCls = statusClass(statusNorm);
+
+  return `
+  <div class="tx-item">
+    <div class="tx-row-top">
+      <div class="tx-amount ${dirClass}">
+        <span class="arrow">${arrow}</span>
+        <span>${sign}${amountStr}</span>
+      </div>
+      <div class="tx-date">${dateStr}</div>
+    </div>
+    <div class="tx-row-bottom">
+      <div class="tx-tags">
+        <span class="tx-tag type">${typeLabel}</span>
+        ${
+          statusNorm
+            ? `<span class="tx-tag status ${statusCls}">${statusNorm}</span>`
+            : ""
+        }
+      </div>
+      <button class="tx-detail-btn" data-item-id="${item.itemId}">
+        Detalhes
+      </button>
+    </div>
+  </div>
+  `;
+}
+
+function renderTxList(el) {
+  const visible = txState.allItems.slice(0, txState.renderedCount);
+
+  const hasMoreLocal = txState.allItems.length > txState.renderedCount;
+  const hasMoreRemote = txState.btcHasMore || txState.tokenHasMore;
+  const hasMore = hasMoreLocal || hasMoreRemote;
+
+  const loadMoreBtn = hasMore
+    ? `<button type="button" class="tx-load-more" id="btnLoadMoreTx">Carregar mais</button>`
+    : "";
+
+  el.innerHTML = visible.map(renderTxItem).join("") + loadMoreBtn;
+
+  const btn = el.querySelector("#btnLoadMoreTx");
+  if (btn) btn.onclick = loadMoreTransfers;
+}
+
+export async function loadMoreTransfers() {
+  if (txState?.loading) return;
+  if (!state.wallet || !txState) return;
+
+  txState.loading = true;
+
+  try {
+    txState.renderedCount += TX_LOAD_MORE_STEP;
+
+    const remainingLocal = txState.allItems.length - txState.renderedCount;
+    const hasMoreRemote = txState.btcHasMore || txState.tokenHasMore;
+
+    if (remainingLocal < TX_LOAD_MORE_STEP && hasMoreRemote) {
+      const { btcList, tokenList } = await fetchTransfersBatch();
+
+      const myKeyHex = await getMyIdentityKey();
+
+      const newItems = [
+        ...buildBtcItems(btcList),
+        ...buildDepixItems(tokenList, myKeyHex),
+      ];
+
+      mergeItemsIntoBuffer(newItems);
+    }
+
+    renderTxList($("txList"));
+  } catch (e) {
+    console.error("Erro ao carregar mais transações:", e);
+  } finally {
+    txState.loading = false;
+  }
+}
+
 export async function connect(mnemonic) {
   await ensureSdks();
 
@@ -177,6 +492,9 @@ export async function connect(mnemonic) {
 
   state.wallet = wallet;
   state.client = client;
+
+  cachedIdentityKeyHex = null;
+  resetTxState();
 
   wallet.on("transfer:claimed", () => {
     refreshBalances();
@@ -228,207 +546,34 @@ export async function refreshTransfers() {
 
   el.innerHTML = "<div class='tx-meta'>Carregando…</div>";
 
+  resetTxState();
+  txState.loading = true;
+
   try {
-    const { transfers = [] } = await state.wallet.getTransfers(30, 0);
+    await getMyIdentityKey();
 
-    let tokenTxs = [];
+    const { btcList, tokenList } = await fetchTransfersBatch();
 
-    try {
-      const myAddress = await state.wallet.getSparkAddress();
+    const myKeyHex = cachedIdentityKeyHex;
 
-      const tokenResult =
-        await state.wallet.queryTokenTransactionsWithFilters({
-          tokenIdentifiers: [DEPIX_BECH32],
-          sparkAddresses: [myAddress],
-          pageSize: 30,
-        });
+    const initialItems = [
+      ...buildBtcItems(btcList),
+      ...buildDepixItems(tokenList, myKeyHex),
+    ];
 
-      tokenTxs =
-        tokenResult?.tokenTransactionsWithStatus ||
-        tokenResult?.tokenTransactions ||
-        [];
-    } catch (e) {
-      console.warn("Falha ao buscar token txs:", e);
-    }
+    mergeItemsIntoBuffer(initialItems);
 
-    let myKeyHex = "";
-
-    try {
-      myKeyHex = await state.wallet.getIdentityPublicKey();
-    } catch (e) {
-      console.warn("Não foi possível obter identity public key:", e);
-    }
-
-    const STATUS_MAP = {
-      0: "STARTED",
-      1: "SIGNED",
-      2: "FINALIZED",
-      3: "CANCELLED",
-      4: "REVEALED",
-    };
-
-    function uint8ToNumber(bytes) {
-      if (!bytes || !(bytes instanceof Uint8Array)) return 0;
-
-      let value = 0n;
-
-      for (const byte of bytes) {
-        value = (value << 8n) | BigInt(byte);
-      }
-
-      return Number(value);
-    }
-
-    function toAmount(val) {
-      if (val == null) return 0;
-      if (val instanceof Uint8Array) return uint8ToNumber(val);
-      if (typeof val === "bigint") return Number(val);
-      if (typeof val === "number") return val;
-      if (typeof val === "string") return Number(val) || 0;
-      return 0;
-    }
-
-    const items = [];
-
-    txItemsStore.clear();
-
-    for (const tx of transfers) {
-      const itemId = `tx-${txItemsStore.size}`;
-
-      const item = {
-        itemId,
-        kind: "btc",
-        sparkId: tx.id,
-        direction: tx.transferDirection,
-        amount: Number(tx.totalValue),
-        type: tx.type || "TRANSFER",
-        status: String(tx.status || "").replace("TRANSFER_STATUS_", ""),
-        date: tx.createdTime ? new Date(tx.createdTime) : null,
-        memo: "",
-      };
-
-      items.push(item);
-      txItemsStore.set(itemId, item);
-    }
-
-    for (const t of tokenTxs) {
-      const tx = t.tokenTransaction || {};
-      const status = STATUS_MAP[t.status] ?? String(t.status ?? "");
-
-      const outputs = tx.tokenOutputs || [];
-      const inputCase = tx.tokenInputs?.$case || "";
-
-      let ourRaw = 0;
-      let otherRaw = 0;
-
-      for (const out of outputs) {
-        const amt = toAmount(out.tokenAmount);
-        const isOurs = myKeyHex && sameKey(out.ownerPublicKey, myKeyHex);
-
-        if (isOurs) ourRaw += amt;
-        else otherRaw += amt;
-      }
-
-      const isMint = inputCase === "mintInput" || inputCase === "createInput";
-
-      let direction;
-      let amountRaw;
-
-      if (isMint || ourRaw > 0) {
-        direction = "INCOMING";
-        amountRaw = ourRaw;
-      } else if (otherRaw > 0) {
-        direction = "OUTGOING";
-        amountRaw = otherRaw;
-      } else {
-        direction = "OUTGOING";
-        amountRaw = 0;
-      }
-
-      const amount = amountRaw / 1e8;
-
-      const date = tx.clientCreatedTimestamp
-        ? new Date(tx.clientCreatedTimestamp)
-        : tx.expiryTime
-        ? new Date(tx.expiryTime)
-        : null;
-
-      const itemId = `tx-${txItemsStore.size}`;
-
-      const item = {
-        itemId,
-        kind: "depix",
-        sparkId: null,
-        direction,
-        amount,
-        type: inputCase === "mintInput" ? "MINT" : "DEPIX",
-        status,
-        date,
-        memo: "",
-      };
-
-      items.push(item);
-      txItemsStore.set(itemId, item);
-    }
-
-    items.sort(
-      (a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)
+    txState.renderedCount = Math.min(
+      TX_INITIAL_SHOW,
+      txState.allItems.length
     );
 
-    if (!items.length) {
-      el.innerHTML = "<div class='tx-meta'>Nenhuma transação encontrada.</div>";
-      return;
-    }
-
-    el.innerHTML = items
-      .map((item) => {
-        const isDepix = item.kind === "depix";
-        const isIn = item.direction === "INCOMING";
-        const dirClass = isIn ? "tx-dir-in" : "tx-dir-out";
-        const arrow = isIn ? "↓" : "↑";
-        const sign = isIn ? "+" : "−";
-
-        const amountStr = isDepix
-          ? `${item.amount.toLocaleString("pt-BR", {
-              maximumFractionDigits: 8,
-            })} DePix`
-          : `${item.amount.toLocaleString("pt-BR")} sats`;
-
-        const dateStr = formatDateTime(item.date);
-        const typeLabel = prettifyType(item.type);
-        const statusNorm = normalizeStatus(item.status);
-        const statusCls = statusClass(statusNorm);
-
-        return `
-        <div class="tx-item">
-          <div class="tx-row-top">
-            <div class="tx-amount ${dirClass}">
-              <span class="arrow">${arrow}</span>
-              <span>${sign}${amountStr}</span>
-            </div>
-            <div class="tx-date">${dateStr}</div>
-          </div>
-          <div class="tx-row-bottom">
-            <div class="tx-tags">
-              <span class="tx-tag type">${typeLabel}</span>
-              ${
-                statusNorm
-                  ? `<span class="tx-tag status ${statusCls}">${statusNorm}</span>`
-                  : ""
-              }
-            </div>
-            <button class="tx-detail-btn" data-item-id="${item.itemId}">
-              Detalhes
-            </button>
-          </div>
-        </div>
-        `;
-      })
-      .join("");
+    renderTxList(el);
   } catch (e) {
     console.error(e);
-
     el.innerHTML = `<div class="tx-meta">Erro: ${e.message || e}</div>`;
+  } finally {
+    txState.loading = false;
   }
 }
 
