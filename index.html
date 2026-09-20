@@ -249,6 +249,27 @@
       </div>
     </div>
 
+    <div id="sparkInvoiceModal" class="qr-modal hidden">
+      <div class="qr-modal-content lnbc-modal-content">
+        <button id="sparkInvoiceModalClose" class="qr-modal-close" aria-label="Fechar">×</button>
+        <div class="qr-modal-label">Confirmar pagamento Spark</div>
+
+        <div class="lnbc-info" id="sparkInvoiceInfo"></div>
+
+        <label class="lnbc-confirm-label">
+          <input type="checkbox" id="sparkInvoiceConfirmCheck">
+          <span>Eu conferi os dados acima e confirmo o envio.</span>
+        </label>
+
+        <div class="lnbc-actions">
+          <button id="sparkInvoiceCancel" class="btn-secondary">Cancelar</button>
+          <button id="sparkInvoiceConfirm" class="btn-primary" disabled>Enviar</button>
+        </div>
+
+        <div class="log" id="sparkInvoiceLog"></div>
+      </div>
+    </div>
+
     <div id="txDetailModal" class="qr-modal hidden">
       <div class="qr-modal-content tx-detail-modal-content">
         <button id="txDetailModalClose" class="qr-modal-close" aria-label="Fechar">×</button>

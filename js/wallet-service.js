@@ -767,34 +767,81 @@ export async function claimOnchainDeposit(
 }
 
 export async function sendBtc(
-  receiverSparkAddress,
+  receiverSparkAddressOrInvoice,
   amountSats
 ) {
   if (!state.wallet) {
     throw new Error("Carteira não conectada");
   }
 
+  const input = String(receiverSparkAddressOrInvoice || "").trim();
+
+  if (!input) {
+    throw new Error("Endereço vazio");
+  }
+
+  if (!input.startsWith("spark1")) {
+    throw new Error(
+      "BTC só pode ser enviado para endereço Spark (spark1...)"
+    );
+  }
+
+  const isSparkInvoice = input.length > 100;
+
+  if (isSparkInvoice) {
+    return state.wallet.fulfillSparkInvoice([
+      { invoice: input }
+    ]);
+  }
+
+  if (!amountSats || amountSats <= 0) {
+    throw new Error("Informe uma quantidade válida");
+  }
+
   return state.wallet.transfer({
-    receiverSparkAddress,
+    receiverSparkAddress: input,
     amountSats: Number(amountSats)
   });
 }
 
 export async function sendDepix(
-  receiverSparkAddress,
+  receiverSparkAddressOrInvoice,
   amountDepix
 ) {
   if (!state.wallet) {
     throw new Error("Carteira não conectada");
   }
 
-  const tokenAmount =
-    BigInt(Math.round(amountDepix * 1e8));
+  const input = String(receiverSparkAddressOrInvoice || "").trim();
+
+  if (!input) {
+    throw new Error("Endereço vazio");
+  }
+
+  if (!input.startsWith("spark1")) {
+    throw new Error(
+      "DePix só pode ser enviado para endereço Spark (spark1...)"
+    );
+  }
+
+  const isSparkInvoice = input.length > 100;
+
+  if (isSparkInvoice) {
+    return state.wallet.fulfillSparkInvoice([
+      { invoice: input }
+    ]);
+  }
+
+  if (!amountDepix || amountDepix <= 0) {
+    throw new Error("Informe uma quantidade válida");
+  }
+
+  const tokenAmount = BigInt(Math.round(amountDepix * 1e8));
 
   return state.wallet.transferTokens({
     tokenIdentifier: DEPIX_BECH32,
     tokenAmount,
-    receiverSparkAddress
+    receiverSparkAddress: input,
   });
 }
 
@@ -1002,4 +1049,273 @@ export async function createSparkInvoice(amountSats, memo = "") {
     id: invoice.id,
     encoded: invoice.invoice.encodedInvoice
   };
+}
+
+const BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+
+function bech32Decode(str) {
+  const s = String(str).toLowerCase().trim();
+  const pos = s.lastIndexOf("1");
+
+  if (pos < 1 || pos + 7 > s.length) {
+    throw new Error("Bech32 inválido");
+  }
+
+  const hrp = s.slice(0, pos);
+  const dataPart = s.slice(pos + 1);
+
+  const data = [];
+  for (const ch of dataPart) {
+    const idx = BECH32_CHARSET.indexOf(ch);
+    if (idx === -1) throw new Error("Caractere bech32 inválido: " + ch);
+    data.push(idx);
+  }
+
+  return { hrp, data: data.slice(0, -6) };
+}
+
+function convertBits(data, from, to) {
+  let acc = 0;
+  let bits = 0;
+  const result = [];
+  const maxv = (1 << to) - 1;
+
+  for (const value of data) {
+    if (value < 0 || value >> from !== 0) {
+      throw new Error("Valor inválido em convertBits");
+    }
+    acc = (acc << from) | value;
+    bits += from;
+    while (bits >= to) {
+      bits -= to;
+      result.push((acc >> bits) & maxv);
+    }
+  }
+
+  if (bits > 0) {
+    result.push((acc << (to - bits)) & maxv);
+  }
+
+  return result;
+}
+
+function parseProtobuf(bytes) {
+  const fields = [];
+  let i = 0;
+
+  while (i < bytes.length) {
+    let tag = 0;
+    let shift = 0;
+
+    while (i < bytes.length) {
+      const b = bytes[i++];
+      tag |= (b & 0x7F) << shift;
+      shift += 7;
+      if ((b & 0x80) === 0) break;
+    }
+
+    const fieldNumber = tag >>> 3;
+    const wireType = tag & 0x07;
+
+    if (wireType === 0) {
+      let val = 0;
+      let s = 0;
+      while (i < bytes.length) {
+        const b = bytes[i++];
+        val |= (b & 0x7F) << s;
+        s += 7;
+        if ((b & 0x80) === 0) break;
+      }
+      fields.push({ fieldNumber, wireType, value: val });
+    } else if (wireType === 2) {
+      let len = 0;
+      let s = 0;
+      while (i < bytes.length) {
+        const b = bytes[i++];
+        len |= (b & 0x7F) << s;
+        s += 7;
+        if ((b & 0x80) === 0) break;
+      }
+      const val = bytes.slice(i, i + len);
+      i += len;
+      fields.push({ fieldNumber, wireType, value: val });
+    } else if (wireType === 5) {
+      fields.push({ fieldNumber, wireType, value: bytes.slice(i, i + 4) });
+      i += 4;
+    } else if (wireType === 1) {
+      fields.push({ fieldNumber, wireType, value: bytes.slice(i, i + 8) });
+      i += 8;
+    } else {
+      break;
+    }
+  }
+
+  return fields;
+}
+
+function bytesToUtf8(bytes) {
+  try {
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  } catch {
+    return "";
+  }
+}
+
+function tryUtf8(bytes) {
+  if (!bytes || !bytes.length) return "";
+
+  const decoded = bytesToUtf8(bytes);
+
+  const printable = decoded.replace(/[\x20-\x7E\u00A0-\uFFFF]/g, "");
+
+  if (printable.length > decoded.length / 3) return "";
+
+  return decoded;
+}
+
+function bytesToBigIntBE(bytes) {
+  let value = 0n;
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << 8n) | BigInt(bytes[i]);
+  }
+  return Number(value);
+}
+
+function bech32mPolymod(values) {
+  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+  let chk = 1;
+  for (const v of values) {
+    const top = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ v;
+    for (let i = 0; i < 5; i++) {
+      if ((top >> i) & 1) chk ^= GEN[i];
+    }
+  }
+  return chk;
+}
+
+function bech32mHrpExpand(hrp) {
+  const ret = [];
+  for (const c of hrp) ret.push(c.charCodeAt(0) >> 5);
+  ret.push(0);
+  for (const c of hrp) ret.push(c.charCodeAt(0) & 31);
+  return ret;
+}
+
+function bech32mCreateChecksum(hrp, data) {
+  const values = [...bech32mHrpExpand(hrp), ...data, 0, 0, 0, 0, 0, 0];
+  const polymod = bech32mPolymod(values) ^ 0x2bc830a3;
+  const ret = [];
+  for (let i = 0; i < 6; i++) {
+    ret.push((polymod >> (5 * (5 - i))) & 31);
+  }
+  return ret;
+}
+
+function bech32mEncode(hrp, dataBytes) {
+  const words = convertBits(Array.from(dataBytes), 8, 5);
+  const checksum = bech32mCreateChecksum(hrp, words);
+  const combined = [...words, ...checksum];
+  return hrp + "1" + combined.map((w) => BECH32_CHARSET[w]).join("");
+}
+
+function decodeSparkInvoiceManual(invoice) {
+  const { hrp, data } = bech32Decode(invoice);
+  const bytes = new Uint8Array(convertBits(data, 5, 8));
+  const topFields = parseProtobuf(bytes);
+
+  const result = {
+    success: true,
+    identityPublicKey: "",
+    network: "MAINNET",
+    amount: null,
+    amountKind: null,
+    tokenIdentifier: null,
+    expiryTime: null,
+    timestamp: null,
+    description: "",
+    senderPublicKey: null,
+    paymentHash: null,
+    raw: { hrp, fields: topFields },
+  };
+
+  for (const f of topFields) {
+    if (f.fieldNumber === 1 && f.wireType === 2) {
+      result.identityPublicKey = bytesToHex(f.value);
+    } else if (f.fieldNumber === 2 && f.wireType === 2) {
+      const details = parseProtobuf(f.value);
+      result.details = details;
+
+      for (const d of details) {
+        if (d.fieldNumber === 1 && d.wireType === 0) {
+          result.variant = d.value;
+        } else if (d.fieldNumber === 2 && d.wireType === 2) {
+          result.paymentHash = bytesToHex(d.value);
+        } else if (d.fieldNumber === 3 && d.wireType === 2) {
+          const sub = parseProtobuf(d.value);
+          for (const s of sub) {
+            if (s.fieldNumber === 1 && s.wireType === 2) {
+              const tokenBytes = s.value;
+              result.tokenIdentifierRaw = bytesToHex(tokenBytes);
+              try {
+                result.tokenIdentifier = bech32mEncode("btkn", tokenBytes);
+              } catch (e) {
+                console.warn("Erro ao reconstruir bech32 do token:", e);
+              }
+            } else if (s.fieldNumber === 2 && s.wireType === 2) {
+              result.amount = bytesToBigIntBE(s.value);
+              result.amountKind = "tokens";
+            }
+          }
+        } else if (d.fieldNumber === 4 && d.wireType === 2) {
+          const sub = parseProtobuf(d.value);
+          for (const s of sub) {
+            if (s.fieldNumber === 1 && s.wireType === 0) {
+              result.amount = s.value;
+              result.amountKind = "sats";
+            } else if (s.fieldNumber === 2 && s.wireType === 0) {
+              result.amount = s.value;
+              result.amountKind = "tokens";
+            }
+          }
+        } else if (d.fieldNumber === 5 && d.wireType === 2) {
+          result.description = tryUtf8(d.value) || bytesToHex(d.value);
+        } else if (d.fieldNumber === 6 && d.wireType === 2) {
+          const sub = parseProtobuf(d.value);
+          if (sub[0]?.wireType === 0) {
+            result.expiryDuration = sub[0].value;
+          }
+        } else if (d.fieldNumber === 7 && d.wireType === 2) {
+          const sub = parseProtobuf(d.value);
+          if (sub[0]?.wireType === 0) {
+            result.timestamp = sub[0].value;
+          }
+        } else if (d.fieldNumber === 8 && d.wireType === 2) {
+          result.senderPublicKey = bytesToHex(d.value);
+        }
+      }
+    } else if (f.fieldNumber === 3 && f.wireType === 2) {
+      result.signature = bytesToHex(f.value);
+    }
+  }
+
+  if (result.timestamp && result.expiryDuration) {
+    result.expiryTime = new Date(
+      (result.timestamp + result.expiryDuration) * 1000
+    );
+  } else if (result.timestamp) {
+    result.expiryTime = new Date((result.timestamp + 3600) * 1000);
+  }
+
+  return result;
+}
+
+export async function decodeSparkInvoice(invoice) {
+  const input = String(invoice || "").trim();
+
+  if (!input.startsWith("spark1")) {
+    throw new Error("Spark invoice inválida");
+  }
+
+  return decodeSparkInvoiceManual(input);
 }
