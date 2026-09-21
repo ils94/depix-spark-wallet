@@ -985,10 +985,22 @@ export async function resolveLightningAddress(
   return inv.pr;
 }
 
+export async function getLightningFeeEstimate(
+  invoice
+) {
+  if (!state.wallet) {
+    throw new Error("Carteira não conectada");
+  }
+
+  return state.wallet.getLightningSendFeeEstimate({
+    encodedInvoice: invoice
+  });
+}
+
 export async function payLightning(
   destination,
   amountSats,
-  maxFeeSats = 50
+  maxFeeSats = null
 ) {
   if (!state.wallet) {
     throw new Error("Carteira não conectada");
@@ -1000,37 +1012,47 @@ export async function payLightning(
     invoice.includes("@") &&
     !invoice.toLowerCase().startsWith("ln")
   ) {
-    invoice =
-      await resolveLightningAddress(
-        invoice,
-        amountSats
-      );
+    invoice = await resolveLightningAddress(invoice, amountSats);
   }
 
-  if (
-    !invoice.toLowerCase().startsWith("ln")
-  ) {
+  if (!invoice.toLowerCase().startsWith("ln")) {
     throw new Error(
       "Destino Lightning inválido (use lnbc... ou user@domain)"
     );
   }
 
-  return state.wallet.payLightningInvoice({
-    invoice,
-    maxFeeSats: Number(maxFeeSats),
-    preferSpark: true
-  });
-}
+  let effectiveMaxFee = Number(maxFeeSats);
 
-export async function getLightningFeeEstimate(
-  invoice
-) {
-  if (!state.wallet) {
-    throw new Error("Carteira não conectada");
+  if (!effectiveMaxFee || effectiveMaxFee <= 0) {
+    try {
+      const estimate = await getLightningFeeEstimate(invoice);
+
+      const estimatedFee = Number(
+        estimate?.feeSats ??
+        estimate?.fee_sats ??
+        estimate?.fee ??
+        0
+      );
+
+      if (estimatedFee > 0) {
+        effectiveMaxFee = Math.ceil(estimatedFee * 1.1 + 1);
+      } else {
+        effectiveMaxFee = Math.max(500, Math.ceil(amountSats * 0.01));
+      }
+
+      console.log(
+        `[payLightning] fee estimada=${estimatedFee} sats, maxFee=${effectiveMaxFee} sats`
+      );
+    } catch (e) {
+      console.warn("[payLightning] falha ao estimar fee:", e);
+      effectiveMaxFee = Math.max(500, Math.ceil(amountSats * 0.01));
+    }
   }
 
-  return state.wallet.getLightningSendFeeEstimate({
-    encodedInvoice: invoice
+  return state.wallet.payLightningInvoice({
+    invoice,
+    maxFeeSats: effectiveMaxFee,
+    preferSpark: true
   });
 }
 

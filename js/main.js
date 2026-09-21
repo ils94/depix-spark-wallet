@@ -188,7 +188,7 @@ $("lnbcConfirm").onclick = async () => {
 	lg.textContent = "Enviando pagamento Lightning…";
 
 	try {
-		const result = await payLightning(invoice, null, 100);
+		const result = await payLightning(invoice, null);
 
 		lg.textContent = "Pagamento enviado com sucesso!";
 		console.log("Lightning payment:", result);
@@ -1136,7 +1136,7 @@ $("btnSend").onclick = async () => {
 				return;
 			} else if (isLnAddress) {
 				appendLog(lg, `Enviando via Lightning para ${to.slice(0, 24)}…`);
-				result = await payLightning(to, amount, 100);
+				result = await payLightning(to, amount);
 			} else {
 				throw new Error(
 					"Destino inválido. Use spark1..., lnbc... ou user@domain"
