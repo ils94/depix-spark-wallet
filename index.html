@@ -88,19 +88,30 @@
               <div class="bal-sub" id="depixFiat"></div>
             </div>
             <button class="btn-secondary" id="btnRefresh"> Atualizar saldo </button>
-            <div class="addr-box">
-              <div class="addr-label"> Seu endereço Spark </div>
-              <div class="addr-value" id="sparkAddr"> — </div>
-              <button class="btn-secondary" id="btnQrSpark"> Ver QR Code </button>
-              <button class="btn-secondary btn-copy" id="btnCopyAddr"> Copiar endereço </button>
+
+            <div class="receive-block">
+              <button type="button" id="btnToggleReceive" class="btn-secondary receive-toggle" aria-expanded="false">
+                <span>Receber</span>
+                <svg class="chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              <div id="receivePanel" class="receive-panel hidden">
+                <div class="addr-box">
+                  <div class="addr-label"> Seu endereço Spark </div>
+                  <div class="addr-value" id="sparkAddr"> — </div>
+                  <button class="btn-secondary" id="btnQrSpark"> Ver QR Code </button>
+                  <button class="btn-secondary btn-copy" id="btnCopyAddr"> Copiar endereço </button>
+                </div>
+                <div class="addr-box">
+                  <div class="addr-label"> Depositar BTC on-chain </div>
+                  <div class="addr-value" id="depositAddr"> — </div>
+                  <button class="btn-secondary" id="btnQrDeposit"> Ver QR Code </button>
+                  <button class="btn-secondary btn-copy" id="btnCopyDeposit"> Copiar endereço de depósito </button>
+                </div>
+              </div>
             </div>
-            <div class="addr-box" style="margin-top: 14px;">
-              <div class="addr-label"> Depositar BTC on-chain </div>
-              <div class="addr-value" id="depositAddr"> — </div>
-              <button class="btn-secondary" id="btnQrDeposit"> Ver QR Code </button>
-              <button class="btn-secondary btn-copy" id="btnCopyDeposit"> Copiar endereço de depósito </button>
-            </div>
-          </div>
 
           <div class="card" id="actionCard">
             <label class="card-title" for="actionMode"> Ação </label>

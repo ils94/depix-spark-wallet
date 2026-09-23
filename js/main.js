@@ -1743,6 +1743,17 @@ if (_txList) {
   });
 }
 
+$("btnToggleReceive").onclick = () => {
+  const btn = $("btnToggleReceive");
+  const panel = $("receivePanel");
+
+  const isOpen =
+    btn.getAttribute("aria-expanded") === "true";
+
+  btn.setAttribute("aria-expanded", String(!isOpen));
+  panel.classList.toggle("hidden", isOpen);
+};
+
 initTabs();
 updateActionMode();
 showInitialView();
