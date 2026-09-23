@@ -996,31 +996,59 @@ function updateActionMode() {
 
 	if ($("quoteBox")) $("quoteBox").classList.remove("show");
 	if ($("exitQuoteBox")) $("exitQuoteBox").classList.remove("show");
+
+	updateSendFieldsVisibility();
 }
 
 $("actionMode").onchange = updateActionMode;
+
+function updateSendFieldsVisibility() {
+	const el = $("sendTo");
+	const dynamic = $("sendDynamicFields");
+
+	if (!el || !dynamic) return;
+
+	const to = el.value.trim();
+
+	if (!to) {
+		dynamic.classList.add("hidden");
+		return;
+	}
+
+	const isBolt11 = /^ln(bc|tb|sb)/i.test(to);
+	const isSpark1 = to.startsWith("spark1");
+	const isSparkInvoice = isSpark1 && to.length > 100;
+	const isSparkAddress = isSpark1 && !isSparkInvoice;
+	const isLnAddress = !isBolt11 && to.includes("@");
+
+	if (isBolt11 || isSparkInvoice) {
+		dynamic.classList.add("hidden");
+		return;
+	}
+
+	if (isSparkAddress || isLnAddress) {
+		dynamic.classList.remove("hidden");
+		return;
+	}
+
+	dynamic.classList.add("hidden");
+}
+
+$("sendTo").addEventListener("input", updateSendFieldsVisibility);
 
 $("sendAsset").onchange = () => {
 	const isBtc = $("sendAsset").value === "btc";
 
 	$("sendAmountLabel").textContent = isBtc
-		? "Quantidade de sats (opcional p/ invoice)"
-		: "Quantidade de DePix (opcional p/ spark invoice)";
+		? "Quantidade de sats"
+		: "Quantidade de DePix";
 
 	$("sendAmount").placeholder = isBtc
-		? "ex: 5000 (opcional p/ lnbc)"
-		: "ex: 1.5 (opcional p/ spark invoice)";
-
-	if (isBtc) {
-		$("sendTo").placeholder = "spark1... | lnbc... | user@domain";
-	} else {
-		$("sendTo").placeholder = "spark1... (endereço ou invoice)";
-	}
+		? "ex: 5000"
+		: "ex: 1.5";
 };
 
 $("btnSend").onclick = async () => {
-	const asset = $("sendAsset").value;
-	const amount = parseFloat($("sendAmount").value);
 	const to = $("sendTo").value.trim();
 
 	if (!to) {
@@ -1028,25 +1056,10 @@ $("btnSend").onclick = async () => {
 	}
 
 	const isBolt11 = /^ln(bc|tb|sb)/i.test(to);
+	const isSpark1 = to.startsWith("spark1");
+	const isSparkInvoice = isSpark1 && to.length > 100;
+	const isSparkAddress = isSpark1 && !isSparkInvoice;
 	const isLnAddress = !isBolt11 && to.includes("@");
-	const isSparkInvoice = to.startsWith("spark1") && to.length > 100;
-
-	if (
-		!isBolt11 &&
-		!isSparkInvoice &&
-		(!amount || amount <= 0)
-	) {
-		return alert("Informe uma quantidade válida");
-	}
-
-	if (
-		asset === "btc" &&
-		!isBolt11 &&
-		!isSparkInvoice &&
-		!Number.isInteger(amount)
-	) {
-		return alert("Quantidade de sats deve ser um número inteiro");
-	}
 
 	const btn = $("btnSend");
 	const lg = $("swapLog");
@@ -1059,31 +1072,56 @@ $("btnSend").onclick = async () => {
 	try {
 		let result;
 
-		if (asset === "depix") {
-			if (!to.startsWith("spark1")) {
+		if (isBolt11) {
+			appendLog(lg, "Decodificando invoice Lightning…");
+
+			let decoded;
+			try {
+				decoded = await decodeLightningInvoice(to);
+			} catch (e) {
 				throw new Error(
-					"DePix só pode ser enviado para endereço Spark (spark1...)"
+					"Não foi possível decodificar a invoice: " + (e?.message || e)
 				);
 			}
 
-			if (isSparkInvoice) {
-				appendLog(
-					lg,
-					"Decodificando Spark invoice…"
+			openLnbcModal(to, decoded);
+			return;
+		}
+
+		if (isSparkInvoice) {
+			appendLog(lg, "Decodificando Spark invoice…");
+
+			let details;
+			try {
+				details = await decodeSparkInvoice(to);
+			} catch (e) {
+				throw new Error(
+					"Não foi possível decodificar a Spark invoice: " +
+						(e?.message || e)
 				);
+			}
 
-				let details;
-				try {
-					details = await decodeSparkInvoice(to);
-				} catch (e) {
-					throw new Error(
-						"Não foi possível decodificar a Spark invoice: " +
-							(e?.message || e)
-					);
-				}
+			const invoiceAsset = details.tokenIdentifier ? "depix" : "btc";
+			openSparkInvoiceModal(to, details, invoiceAsset);
+			return;
+		}
 
-				openSparkInvoiceModal(to, details, "depix");
-				return;
+		const asset = $("sendAsset").value;
+		const amount = parseFloat($("sendAmount").value);
+
+		if (!amount || amount <= 0) {
+			throw new Error("Informe uma quantidade válida");
+		}
+
+		if (asset === "btc" && !Number.isInteger(amount)) {
+			throw new Error("Quantidade de sats deve ser um número inteiro");
+		}
+
+		if (asset === "depix") {
+			if (!isSparkAddress) {
+				throw new Error(
+					"DePix só pode ser enviado para endereço Spark (spark1...)"
+				);
 			}
 
 			appendLog(
@@ -1093,47 +1131,13 @@ $("btnSend").onclick = async () => {
 
 			result = await sendDepix(to, amount);
 		} else {
-			if (to.startsWith("spark1")) {
-				if (isSparkInvoice) {
-					appendLog(
-						lg,
-						"Decodificando Spark invoice…"
-					);
-
-					let details;
-					try {
-						details = await decodeSparkInvoice(to);
-					} catch (e) {
-						throw new Error(
-							"Não foi possível decodificar a Spark invoice: " +
-								(e?.message || e)
-						);
-					}
-
-					openSparkInvoiceModal(to, details, "btc");
-					return;
-				}
-
+			if (isSparkAddress) {
 				appendLog(
 					lg,
 					`Enviando ${amount} sats (Spark) para ${to.slice(0, 14)}…`
 				);
 
 				result = await sendBtc(to, amount);
-			} else if (isBolt11) {
-				appendLog(lg, "Decodificando invoice Lightning…");
-
-				let decoded;
-				try {
-					decoded = await decodeLightningInvoice(to);
-				} catch (e) {
-					throw new Error(
-						"Não foi possível decodificar a invoice: " + (e?.message || e)
-					);
-				}
-
-				openLnbcModal(to, decoded);
-				return;
 			} else if (isLnAddress) {
 				appendLog(lg, `Enviando via Lightning para ${to.slice(0, 24)}…`);
 				result = await payLightning(to, amount);
@@ -1149,6 +1153,8 @@ $("btnSend").onclick = async () => {
 
 		$("sendAmount").value = "";
 		$("sendTo").value = "";
+
+		updateSendFieldsVisibility();
 
 		await refreshBalances();
 		await refreshTransfers();
@@ -1475,6 +1481,7 @@ function handleQrScanned(decodedText) {
 	}
 
 	$("sendTo").value = cleaned;
+	updateSendFieldsVisibility();
 	closeScanModal();
 }
 
