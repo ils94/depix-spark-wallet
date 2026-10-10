@@ -1,0 +1,28 @@
+{
+  "name": "DePix Spark Wallet",
+  "short_name": "DePix Wallet",
+  "description": "DePix and Bitcoin wallet powered by Spark",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": [
+    "finance"
+  ],
+  "icons": [
+    {
+      "src": "./android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
