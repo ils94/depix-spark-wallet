@@ -314,6 +314,71 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.legacy.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script type="importmap">
+{
+  "imports": {
+    "@noble/hashes/_assert": "./js/vendor/deps/@noble/hashes/esm/_assert.js",
+    "@noble/hashes/_assert.js": "./js/vendor/deps/@noble/hashes/esm/_assert.js",
+    "@noble/hashes/_md": "./js/vendor/deps/@noble/hashes/esm/_md.js",
+    "@noble/hashes/_md.js": "./js/vendor/deps/@noble/hashes/esm/_md.js",
+    "@noble/hashes/_u64": "./js/vendor/deps/@noble/hashes/esm/_u64.js",
+    "@noble/hashes/_u64.js": "./js/vendor/deps/@noble/hashes/esm/_u64.js",
+    "@noble/hashes/crypto": "./js/vendor/deps/@noble/hashes/esm/crypto.js",
+    "@noble/hashes/crypto.js": "./js/vendor/deps/@noble/hashes/esm/crypto.js",
+    "@noble/hashes/hmac": "./js/vendor/deps/@noble/hashes/esm/hmac.js",
+    "@noble/hashes/hmac.js": "./js/vendor/deps/@noble/hashes/esm/hmac.js",
+    "@noble/hashes/legacy": "./js/vendor/deps/@noble/hashes/esm/legacy.js",
+    "@noble/hashes/legacy.js": "./js/vendor/deps/@noble/hashes/esm/legacy.js",
+    "@noble/hashes/ripemd160": "./js/vendor/deps/@noble/hashes/esm/ripemd160.js",
+    "@noble/hashes/ripemd160.js": "./js/vendor/deps/@noble/hashes/esm/ripemd160.js",
+    "@noble/hashes/sha2": "./js/vendor/deps/@noble/hashes/esm/sha2.js",
+    "@noble/hashes/sha2.js": "./js/vendor/deps/@noble/hashes/esm/sha2.js",
+    "@noble/hashes/sha256": "./js/vendor/deps/@noble/hashes/esm/sha256.js",
+    "@noble/hashes/sha256.js": "./js/vendor/deps/@noble/hashes/esm/sha256.js",
+    "@noble/hashes/sha512": "./js/vendor/deps/@noble/hashes/esm/sha512.js",
+    "@noble/hashes/sha512.js": "./js/vendor/deps/@noble/hashes/esm/sha512.js",
+    "@noble/hashes/utils": "./js/vendor/deps/@noble/hashes/esm/utils.js",
+    "@noble/hashes/utils.js": "./js/vendor/deps/@noble/hashes/esm/utils.js",
+    "@noble/curves/_shortw_utils": "./js/vendor/deps/@noble/curves/esm/_shortw_utils.js",
+    "@noble/curves/_shortw_utils.js": "./js/vendor/deps/@noble/curves/esm/_shortw_utils.js",
+    "@noble/curves/secp256k1": "./js/vendor/deps/@noble/curves/esm/secp256k1.js",
+    "@noble/curves/secp256k1.js": "./js/vendor/deps/@noble/curves/esm/secp256k1.js",
+    "@noble/curves/utils": "./js/vendor/deps/@noble/curves/esm/utils.js",
+    "@noble/curves/utils.js": "./js/vendor/deps/@noble/curves/esm/utils.js",
+    "@noble/curves/abstract/curve": "./js/vendor/deps/@noble/curves/esm/abstract/curve.js",
+    "@noble/curves/abstract/curve.js": "./js/vendor/deps/@noble/curves/esm/abstract/curve.js",
+    "@noble/curves/abstract/hash-to-curve": "./js/vendor/deps/@noble/curves/esm/abstract/hash-to-curve.js",
+    "@noble/curves/abstract/hash-to-curve.js": "./js/vendor/deps/@noble/curves/esm/abstract/hash-to-curve.js",
+    "@noble/curves/abstract/modular": "./js/vendor/deps/@noble/curves/esm/abstract/modular.js",
+    "@noble/curves/abstract/modular.js": "./js/vendor/deps/@noble/curves/esm/abstract/modular.js",
+    "@noble/curves/abstract/montgomery": "./js/vendor/deps/@noble/curves/esm/abstract/montgomery.js",
+    "@noble/curves/abstract/montgomery.js": "./js/vendor/deps/@noble/curves/esm/abstract/montgomery.js",
+    "@noble/curves/abstract/utils": "./js/vendor/deps/@noble/curves/esm/abstract/utils.js",
+    "@noble/curves/abstract/utils.js": "./js/vendor/deps/@noble/curves/esm/abstract/utils.js",
+    "@noble/curves/abstract/weierstrass": "./js/vendor/deps/@noble/curves/esm/abstract/weierstrass.js",
+    "@noble/curves/abstract/weierstrass.js": "./js/vendor/deps/@noble/curves/esm/abstract/weierstrass.js",
+    "@scure/base": "https://esm.sh/@scure/base@1.2.4",
+    "@scure/bip32": "https://esm.sh/@scure/bip32@1.6.2",
+    "@scure/bip39": "https://esm.sh/@scure/bip39@1.5.4",
+    "@scure/bip39/wordlists/english": "https://esm.sh/@scure/bip39@1.5.4/wordlists/english.js",
+    "@scure/btc-signer": "https://esm.sh/@scure/btc-signer@1.5.0",
+    "@scure/btc-signer/": "https://esm.sh/@scure/btc-signer@1.5.0/",
+    "@bufbuild/protobuf/wire": "https://esm.sh/@bufbuild/protobuf@2.2.5/wire",
+    "@lightsparkdev/core": "https://esm.sh/@lightsparkdev/core@1.5.0",
+    "nice-grpc-common": "https://esm.sh/nice-grpc-common@2.0.2",
+    "nice-grpc-web": "https://esm.sh/nice-grpc-web@3.3.7",
+    "nice-grpc-client-middleware-retry": "https://esm.sh/nice-grpc-client-middleware-retry@3.1.10",
+    "uuidv7": "https://esm.sh/uuidv7@1.0.2",
+    "eventemitter3": "https://esm.sh/eventemitter3@5.0.1",
+    "async-mutex": "https://esm.sh/async-mutex@0.5.0",
+    "abort-controller-x": "https://esm.sh/abort-controller-x@0.4.3",
+    "light-bolt11-decoder": "https://esm.sh/light-bolt11-decoder@3.2.0",
+    "bech32": "https://esm.sh/bech32@2.0.0",
+    "fast-sha256": "https://esm.sh/fast-sha256@1.3.0",
+    "buffer": "https://esm.sh/buffer@6.0.3"
+  }
+}
+</script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
