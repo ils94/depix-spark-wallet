@@ -42,7 +42,7 @@ function resetTxState() {
 
 const TYPE_LABELS = {
   TRANSFER: "Transferência",
-  PREIMAGE_SWAP: "Swap",
+  PREIMAGE_SWAP: "Swap Lightning",
   UTXO_SWAP: "Swap UTXO",
   COOPERATIVE_EXIT: "Exit",
   MINT: "Mint",
@@ -50,8 +50,21 @@ const TYPE_LABELS = {
   LIGHTNING: "Lightning",
 };
 
-function prettifyType(type) {
+function prettifyType(type, direction) {
   if (!type) return "—";
+
+  // Para o usuário, o que importa é se o BTC entrou ou saiu.
+  // O protocolo pode rotular receive/send como UTXO_SWAP.
+  if (direction === "INCOMING") {
+    if (type === "TRANSFER" || type === "UTXO_SWAP") return "Recebimento";
+    if (type === "PREIMAGE_SWAP" || type === "LIGHTNING") return "Recebimento Lightning";
+  }
+  if (direction === "OUTGOING") {
+    if (type === "TRANSFER" || type === "UTXO_SWAP") return "Envio";
+    if (type === "PREIMAGE_SWAP" || type === "LIGHTNING") return "Envio Lightning";
+    if (type === "COOPERATIVE_EXIT") return "Exit on-chain";
+  }
+
   return TYPE_LABELS[type] || type;
 }
 
@@ -149,7 +162,8 @@ function toAmount(val) {
 async function getMyIdentityKey() {
   if (cachedIdentityKeyHex) return cachedIdentityKeyHex;
   try {
-    cachedIdentityKeyHex = await state.wallet.getIdentityPublicKey();
+    const key = await state.wallet.getIdentityPublicKey();
+    cachedIdentityKeyHex = bytesToHex(key);
   } catch (e) {
     console.warn("Não foi possível obter identity key:", e);
   }
@@ -296,20 +310,59 @@ function normalizeBtcStatus(rawStatus) {
   return s.replace(/^TRANSFER_STATUS_/, "").toUpperCase();
 }
 
-function buildBtcItems(transfers) {
-  return transfers.map((tx) => {
+function resolveBtcDirection(tx, myKeyHex) {
+  const raw = String(tx.transferDirection || tx.direction || "").toUpperCase();
+  if (raw === "INCOMING" || raw === "IN" || raw === "RECEIVE" || raw === "RECEIVED") {
+    return "INCOMING";
+  }
+  if (raw === "OUTGOING" || raw === "OUT" || raw === "SEND" || raw === "SENT") {
+    return "OUTGOING";
+  }
+
+  // Fallback: compara identity keys do transfer com a nossa.
+  if (myKeyHex) {
+    const sender = bytesToHex(
+      tx.senderIdentityPublicKey || tx.senderPublicKey || tx.senderIdentityKey
+    );
+    const receiver = bytesToHex(
+      tx.receiverIdentityPublicKey || tx.receiverPublicKey || tx.receiverIdentityKey
+    );
+
+    if (receiver && sameKey(receiver, myKeyHex) && (!sender || !sameKey(sender, myKeyHex))) {
+      return "INCOMING";
+    }
+    if (sender && sameKey(sender, myKeyHex) && (!receiver || !sameKey(receiver, myKeyHex))) {
+      return "OUTGOING";
+    }
+    // Auto-transfer (mesma key nos dois lados): trata como saída neutra.
+    if (sender && receiver && sameKey(sender, myKeyHex) && sameKey(receiver, myKeyHex)) {
+      return "OUTGOING";
+    }
+  }
+
+  return "";
+}
+
+function buildBtcItems(transfers, myKeyHex) {
+  return (transfers || []).map((tx) => {
     const itemId = `btc:${tx.id}`;
+    const direction = resolveBtcDirection(tx, myKeyHex);
 
     return {
       itemId,
       kind: "btc",
       sparkId: tx.id,
-      direction: tx.transferDirection,
-      amount: Number(tx.totalValue),
+      direction,
+      amount: Number(tx.totalValue ?? tx.amountSats ?? tx.amount ?? 0),
       type: normalizeBtcType(tx.type),
       status: normalizeBtcStatus(tx.status),
-      date: tx.createdTime ? new Date(tx.createdTime) : null,
-      memo: "",
+      date: tx.createdTime
+        ? new Date(tx.createdTime)
+        : tx.updatedTime
+        ? new Date(tx.updatedTime)
+        : null,
+      memo: tx.memo || "",
+      rawDirection: tx.transferDirection || "",
     };
   });
 }
@@ -494,9 +547,10 @@ function mergeItemsIntoBuffer(newItems) {
 function renderTxItem(item) {
   const isDepix = item.kind === "depix";
   const isIn = item.direction === "INCOMING";
-  const dirClass = isIn ? "tx-dir-in" : "tx-dir-out";
-  const arrow = isIn ? "↓" : "↑";
-  const sign = isIn ? "+" : "−";
+  const isOut = item.direction === "OUTGOING";
+  const dirClass = isIn ? "tx-dir-in" : isOut ? "tx-dir-out" : "tx-dir-unknown";
+  const arrow = isIn ? "↓" : isOut ? "↑" : "•";
+  const sign = isIn ? "+" : isOut ? "−" : "";
 
   const amountStr = isDepix
     ? `${item.amount.toLocaleString("pt-BR", {
@@ -505,7 +559,7 @@ function renderTxItem(item) {
     : `${item.amount.toLocaleString("pt-BR")} sats`;
 
   const dateStr = formatDateTime(item.date);
-  const typeLabel = prettifyType(item.type);
+  const typeLabel = prettifyType(item.type, item.direction);
   const statusNorm = normalizeStatus(item.status);
   const statusCls = statusClass(statusNorm);
 
@@ -570,7 +624,7 @@ export async function loadMoreTransfers() {
       const myKeyHex = await getMyIdentityKey();
 
       const newItems = [
-        ...buildBtcItems(btcList),
+        ...buildBtcItems(btcList, myKeyHex),
         ...buildDepixItems(tokenList, myKeyHex),
       ];
 
@@ -673,7 +727,7 @@ export async function refreshTransfers() {
     const myKeyHex = cachedIdentityKeyHex;
 
     const initialItems = [
-      ...buildBtcItems(btcList),
+      ...buildBtcItems(btcList, myKeyHex),
       ...buildDepixItems(tokenList, myKeyHex),
     ];
 

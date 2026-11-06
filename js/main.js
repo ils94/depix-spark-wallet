@@ -1650,8 +1650,21 @@ async function openTxDetailModal(item) {
 
   const rows = [];
 
+  const typeLabel = (() => {
+    const t = String(item.type || "");
+    const d = item.direction;
+    if (d === "INCOMING" && (t === "TRANSFER" || t === "UTXO_SWAP")) return "Recebimento";
+    if (d === "OUTGOING" && (t === "TRANSFER" || t === "UTXO_SWAP")) return "Envio";
+    if (d === "INCOMING" && (t === "PREIMAGE_SWAP" || t === "LIGHTNING")) return "Recebimento Lightning";
+    if (d === "OUTGOING" && (t === "PREIMAGE_SWAP" || t === "LIGHTNING")) return "Envio Lightning";
+    if (t === "COOPERATIVE_EXIT") return "Exit on-chain";
+    if (t === "DEPIX") return "DePix";
+    if (t === "MINT") return "Mint";
+    return t || "—";
+  })();
+
   rows.push(
-    `<div class="row-item"><span class="k">Tipo</span><span class="v">${escHtml(item.type)}</span></div>`
+    `<div class="row-item"><span class="k">Tipo</span><span class="v">${escHtml(typeLabel)}</span></div>`
   );
 
   rows.push(
@@ -1660,6 +1673,13 @@ async function openTxDetailModal(item) {
       item.direction === "OUTGOING" ? "Envio" : "—"
     }</span></div>`
   );
+
+  // Protocolo bruto (útil p/ debug): UTXO_SWAP etc.
+  if (item.type && typeLabel !== item.type) {
+    rows.push(
+      `<div class="row-item"><span class="k">Tipo (protocolo)</span><span class="v">${escHtml(item.type)}</span></div>`
+    );
+  }
 
   rows.push(
     `<div class="row-item"><span class="k">Valor</span><span class="v">${

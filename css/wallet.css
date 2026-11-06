@@ -205,6 +205,7 @@
 
 .tx-amount.tx-dir-in  { color: var(--dep); }
 .tx-amount.tx-dir-out { color: #ff6b81; }
+.tx-amount.tx-dir-unknown { color: var(--muted, #9aa0a6); }
 
 .tx-date {
   font-size: .72rem;
